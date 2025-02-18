@@ -29,7 +29,7 @@ tau <- data.frame(tau_w_H0 = numeric(B), tau_l_H0 = numeric(B),
 Xi.H0_all <- Xi.HA_all <- data.frame()
 
 # Set up parallel computing
-numCores <- 8   # Detect the number of cores and leave one free
+numCores <- detectCores() - 2   # Detect the number of cores and leave one free
 cl <- makeCluster(numCores)    # Create a cluster with the available cores
 set.seed(123)
 M <- 8000 ; N <- 8000

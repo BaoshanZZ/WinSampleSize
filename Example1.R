@@ -21,7 +21,7 @@ endpoints.H0 <- list(
 
 set.seed(123)
 M <- 8000 ; N <- 8000
-numCores <- 10   # Detect the number of cores and leave one free
+numCores <- detectCores() - 2   # Detect the number of cores and leave one free
 corr <- matrix(c(1,0,0,1), nrow = 2)
 
 # Generate sample using Clayton copula with Kendall's tau = 0.5
