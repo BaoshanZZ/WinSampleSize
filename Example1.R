@@ -1,4 +1,4 @@
-setwd("/hpc/home/bz91/Win_GSDesign/R Shinyapp")
+setwd("/Users/baoshanzhang/Library/CloudStorage/OneDrive-DukeUniversity/Research/DCRI/WRShiny/Github/WinSampleSize")
 source("DynSampleGener.R")
 source("DynWinVarEstFUNC.R")
 library(dplyr)
@@ -122,5 +122,3 @@ SampleSize_Calc(tau_w.HA = tau_w.HA_mean, tau_l.HA = tau_l.HA_mean, tau_w.H0 = t
                 alpha = alpha, beta = beta, Sample.rho = Sample.rho, 
                 Xi.H0 = Xi.H0_Mean, Xi.HA = Xi.HA_Mean, Metric = "DOOR")
 
-Calc.Attained.Level(RUNNING = 10000, alpha = alpha, m = 142, n = 142, copula_type = "Clayton", copula_param = 0, 
-                    endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.H0, c = 200)
