@@ -1,4 +1,4 @@
-setwd("/Users/baoshanzhang/Library/CloudStorage/OneDrive-DukeUniversity/Research/DCRI/WRShiny/Github/WinSampleSize")
+setwd("/Users/baoshanzhang/Library/CloudStorage/OneDrive-DukeUniversity/Research/DCRI/WRShiny/Github/WinSampleSize/ShinyApp Example")
 source("DynSampleGener.R")
 source("DynWinVarEstFUNC.R")
 library(dplyr)
