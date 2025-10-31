@@ -5,7 +5,7 @@ Generating_Sample <- function(
     endpoints,
     copula_type = "Clayton",    # Options: "Clayton", "Frank", "Gumbel", "Gaussian"
     copula_param = NULL,        # For Archimedes ("Clayton", "Frank", "Gumbel"): Input Kendall's tau; For Gaussian: correlation matrix
-    Fellow_up.Time = 180,
+    Follow_up.Time = 180,
     N.Super = 20000
 ){
   N.endpoints <- length(endpoints)
@@ -89,8 +89,8 @@ Generating_Sample <- function(
       data_list[[i]] <- list(Categories = categories)
     } else if (endpoint$type == "binary"){
       binary_indices <- c(binary_indices, i)
-      P <- endpoint$prob
-      Y <- as.numeric(U <= P)
+      P <- endpoint$prob # Prob of Success (Y = 1) 
+      Y <- as.numeric(U > (1-P))
       data_list[[i]] <- list(Y = Y)
     } else if (endpoint$type == "continuous"){
       continuous_indices <- c(continuous_indices, i)
@@ -109,7 +109,7 @@ Generating_Sample <- function(
   }
   
   # Generate censoring times
-  C <- rep(Fellow_up.Time, N.Super)
+  C <- rep(Follow_up.Time, N.Super)
   
   # Initialize data frame
   data <- data.frame(Censoring_Time = C)
