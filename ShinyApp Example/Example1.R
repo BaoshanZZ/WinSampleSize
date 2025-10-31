@@ -22,7 +22,7 @@ endpoints.H0 <- list(
 set.seed(123)
 M <- 8000 ; N <- 8000
 numCores <- detectCores() - 2   # Detect the number of cores and leave one free
-corr <- matrix(c(1,0,0,1), nrow = 2)
+CORR <- matrix(c(1,0,0,1), nrow = 2)
 
 # Generate sample using Clayton copula with Kendall's tau = 0.5
 B <- 100
@@ -47,36 +47,27 @@ clusterEvalQ(cl, {
 
 # Export necessary variables and functions to the cluster
 clusterExport(cl, c("M", "N", "endpoints.H0", "endpoints.HA", "Generating_Sample", 
-                    "CALC_Kernal.Matrix", "B" , "CALC_Xi", "corr"))
+                    "CALC_Kernal.Matrix", "B" , "CALC_Xi", "CORR"))
 
 # Define the function to be run in parallel
-run_simulation <- function(b) {
-  PopData_H0 <- Generating_Sample(
-    endpoints = endpoints.H0,
-    copula_type = "Gaussian",
-    copula_param = corr,   # Kendall's tau
-    Fellow_up.Time = 200,
-    N.Super = M + N
-  )
-  Pop.Treat.HA <- Generating_Sample(
-    endpoints = endpoints.HA,
-    copula_type = "Gaussian",
-    copula_param = corr,   # Kendall's tau
-    Fellow_up.Time = 200,
-    N.Super = N
-  )
-  Pop.Treat.H0 <- PopData_H0[1:M, ]
-  Pop.Control.H0 <- PopData_H0[(M + 1):(N + M), ] 
+run_simulation_b <- function(b) {
+  PopData_H0 <- Generating_Sample(endpoints = endpoints.H0, copula_type = "Gaussian", 
+                                  copula_param = corr, Fellow_up.Time = 200, N.Super = M + N)
+  Pop.Treat.HA <- Generating_Sample(endpoints = endpoints.HA, copula_type = "Gaussian", 
+                                    copula_param = corr, Fellow_up.Time = 200, N.Super = N)
+  Pop.Treat.H0 <- PopData_H0[1:M, ]; Pop.Control.H0 <- PopData_H0[(M + 1):(N + M), ]
   
-  # Kernal Function
   Kernal_H0 <- CALC_Kernal.Matrix(Group.Treat = Pop.Treat.H0, Group.Control = Pop.Control.H0, endpoints = endpoints.H0)
   Kernal_HA <- CALC_Kernal.Matrix(Group.Treat = Pop.Treat.HA, Group.Control = Pop.Control.H0, endpoints = endpoints.HA)
   
-  # Calculate Xi for H0 and H1
   Xi.H0_result <- CALC_Xi(Win_Kernal = Kernal_H0$Win_Kernal, Loss_Kernal = Kernal_H0$Loss_Kernal)
   Xi.HA_result <- CALC_Xi(Win_Kernal = Kernal_HA$Win_Kernal, Loss_Kernal = Kernal_HA$Loss_Kernal)
-  tau_values <- c(Kernal_H0$tau_w, Kernal_H0$tau_l, Kernal_HA$tau_w, Kernal_HA$tau_l)
-  list(Xi.H0_result = Xi.H0_result, Xi.HA_result = Xi.HA_result, tau_values = tau_values)
+  
+  taus <- c(tau_w_H0=Kernal_H0$tau_w, tau_l_H0=Kernal_H0$tau_l, tau_w_HA=Kernal_HA$tau_w, tau_l_HA=Kernal_HA$tau_l,
+            tau_w1_HA=Kernal_HA$tau_w_list[1], tau_w2_HA=Kernal_HA$tau_w_list[2],
+            tau_l1_HA=Kernal_HA$tau_l_list[1], tau_l2_HA=Kernal_HA$tau_l_list[2])
+  
+  return(list(taus = taus, Xi.H0 = Xi.H0_result, Xi.HA = Xi.HA_result))
 }
 
 results <- pblapply(1:B, run_simulation, cl = cl)
@@ -106,7 +97,7 @@ tau_w.HA_mean <- Sim_tau["tau_w_HA",]$Mean
 tau_l.HA_mean <- Sim_tau["tau_l_HA",]$Mean
 
 Sample.rho <- 1  
-alpha <- 0.025
+alpha <- 0.025 #two-sided alpha 0.05
 beta <- 0.15
 
 SampleSize_Calc(tau_w.HA = tau_w.HA_mean, tau_l.HA = tau_l.HA_mean, tau_w.H0 = tau_w.H0_mean, tau_l.H0 = tau_l.H0_mean,
