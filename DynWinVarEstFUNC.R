@@ -1,7 +1,7 @@
 # Load necessary libraries
 library(Matrix)
 
-CALC_Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
+Calc.Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
   M <- nrow(Group.Treat)
   N <- nrow(Group.Control)
   num_endpoints <- length(endpoints)
@@ -22,11 +22,10 @@ CALC_Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
     W_ij <- Matrix(0, nrow = M, ncol = N, sparse = TRUE)
     L_ij <- Matrix(0, nrow = M, ncol = N, sparse = TRUE)
     Omega_ij <- Matrix(0, nrow = M, ncol = N, sparse = TRUE)
-    
     if (endpoint_type == "survival"){
       # Extract survival times and event indicators
       Y_Treat <- Group.Treat[[paste0("Y_", i)]]
-      Delta_Treat <- Group.Treat[[paste0("delta_", i)]]
+      Delta_Treat <- Group.Treat[[paste0("delta_", i)]] # Observed indicator
       Y_Control <- Group.Control[[paste0("Y_", i)]]
       Delta_Control <- Group.Control[[paste0("delta_", i)]]
       # Calculate W_ij and L_ij matrices
@@ -38,7 +37,7 @@ CALC_Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
       # Extract ordinal values
       Y_Treat <- as.integer(Group.Treat[[paste0("Ordinal_", i)]])
       Y_Control <- as.integer(Group.Control[[paste0("Ordinal_", i)]])
-      # For ordinal variables, lower values are better
+      # For ordinal variables, bigger values are better
       W_ij <- (outer(Y_Treat, Y_Control, ">")) * 1
       L_ij <- (outer(Y_Treat, Y_Control, "<")) * 1
       Omega_ij <- (outer(Y_Treat, Y_Control, "==")) * 1
@@ -58,7 +57,7 @@ CALC_Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
       Y_Control <- Group.Control[[paste0("Continuous_", i)]]
       # Use the threshold provided in the endpoint specification
       threshold <- endpoint$threshold
-      # W_ij is 1 when (Y_Treat - Y_Control) > threshold
+      # W_ij is 1 when (Y_Treat - Y_Control) > threshold; Bigger better
       W_ij <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (x - y) > threshold }) * 1
       # L_ij is 1 when (Y_Control - Y_Treat) > threshold
       L_ij <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (y - x) > threshold }) * 1
@@ -110,7 +109,7 @@ CALC_Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
   ))
 }
 
-CALC_Xi <- function(Win_Kernal, Loss_Kernal){
+Calc.Xi <- function(Win_Kernal, Loss_Kernal){
   M <- nrow(Win_Kernal); N <- ncol(Win_Kernal)
   tau_w <- mean(Win_Kernal); tau_l <- mean(Loss_Kernal)
   
@@ -135,7 +134,7 @@ CALC_Xi <- function(Win_Kernal, Loss_Kernal){
 #### Variance of a series of derived Win Statistics: (NB, WR, WO and DOOR)
 Var_NB<- function(m, n, Xi){
   Var.NB <- (n - 1) / (m * n) * (Xi$xi.ww10 + Xi$xi.ll10 - 2 * Xi$xi.wl10) + (m - 1) / (m * n) * (Xi$xi.ww01 + Xi$xi.ll01 - 2 * Xi$xi.wl01) + 1 / (m * n) * (Xi$xi.ww11 + Xi$xi.ll11 - 2 * Xi$xi.wl11)
-  return(Var.NB)
+  return(Var.NB) 
 }
 
 Var_logWR <- function(m, n, Xi, tau_w, tau_l){
@@ -157,10 +156,11 @@ Var_DOOR <- function(m, n, Xi){
   return(1/4 * Var.NB)
 }
 
-# Sample size calculation function
-SampleSize_Calc <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0, 
+
+# Sample size calculation function for two-sided hypothesis test with alpha 
+Calc.SampleSize <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0, 
                             alpha, beta, Sample.rho, Metric){
-  z_alpha <- qnorm(1 - alpha)
+  z_alpha <- qnorm(1 - alpha/2)
   z_beta <- qnorm(1 - beta)
   # Calculate delta_tau and set up variance functions based on the Metric
   if(Metric == "NB"){
@@ -170,7 +170,7 @@ SampleSize_Calc <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0
       Var_H0 <- Var_NB(m = m, n = n, Xi = Xi.H0)
       Var_HA <- Var_NB(m = m, n = n, Xi = Xi.HA)
       lhs <- - z_beta * sqrt(Var_HA) # z_{1-\beta} = - z_\beta
-      rhs <- z_alpha * sqrt(Var_H0) - delta_tau
+      rhs <- z_alpha * sqrt(Var_H0) - abs(delta_tau)
       return(lhs - rhs)
     }
   } else if(Metric == "WR"){
@@ -180,7 +180,7 @@ SampleSize_Calc <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0
       Var_H0 <- Var_logWR(m = m, n = n, Xi = Xi.H0, tau_w = tau_w.H0, tau_l = tau_l.H0)
       Var_HA <- Var_logWR(m = m, n = n, Xi = Xi.HA, tau_w = tau_w.HA, tau_l = tau_l.HA)
       lhs <- - z_beta * sqrt(Var_HA) 
-      rhs <- z_alpha * sqrt(Var_H0) - theta_tau
+      rhs <- z_alpha * sqrt(Var_H0) - abs(theta_tau)
       return(lhs - rhs)
     }
   } else if(Metric == "WO"){
@@ -191,18 +191,18 @@ SampleSize_Calc <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0
       Var_H0 <- Var_logWO(m = m, n = n, Xi = Xi.H0, tau_w = tau_w.H0, tau_l = tau_l.H0)
       Var_HA <- Var_logWO(m = m, n = n, Xi = Xi.HA, tau_w = tau_w.HA, tau_l = tau_l.HA)
       lhs <- -z_beta * sqrt(Var_HA)
-      rhs <- z_alpha * sqrt(Var_H0) - gamma_tau
+      rhs <- z_alpha * sqrt(Var_H0) - abs(gamma_tau)
       return(lhs - rhs)
     }
   } else if(Metric == "DOOR"){
-    lambda_tau <- 0.5*(1 + tau_w.HA - tau_l.HA)
+    lambda_tau <- (tau_w.HA - tau_l.HA)
     # Define the function to find the root
     f <- function(m){
       n <- m * Sample.rho
       Var_H0 <- Var_DOOR(m = m, n = n, Xi = Xi.H0)
       Var_HA <- Var_DOOR(m = m, n = n, Xi = Xi.HA)
       lhs <- - z_beta * sqrt(Var_HA)
-      rhs <- z_alpha * sqrt(Var_H0) - lambda_tau + 0.5
+      rhs <- z_alpha * sqrt(Var_H0) - 0.5 * abs(lambda_tau)
       return(lhs - rhs)
     }
   } else {
@@ -217,16 +217,131 @@ SampleSize_Calc <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0
   f_upper <- f(upper_bound)
   
   if (f_lower * f_upper > 0){
-    stop("Root not found in the specified interval. Please adjust the bounds.")
+    stop("Treatmene arm root not found in the specified interval (from 10 to 1e6). Please adjust the bounds.")
   }
   
   result <- uniroot(f, lower = lower_bound, upper = upper_bound)
   
-  m.sample<- ceiling(result$root)
+  m.sample <- ceiling(result$root)
   n.sample <- ceiling(m.sample * Sample.rho)
   
-  return(list(
-    m.sample = m.sample,
-    n.sample = n.sample
-  ))
+  return(list( m.sample = m.sample, n.sample = n.sample ))
 }
+
+# Power calculation function (Given Sample size) return theortical power level
+# m is the sample size for treatment group and sample size in ctrl n can be calculated as n = m * Sample.rho
+Calc.TheoPower <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0, 
+                       alpha, m, Sample.rho, Metric){
+  z_alpha_half <- qnorm(1 - alpha/2)
+  n <- m * Sample.rho
+  
+  if(Metric == "NB"){
+    effect_size <- tau_w.HA - tau_l.HA
+    Var_H0 <- Var_NB(m = m, n = n, Xi = Xi.H0)
+    Var_HA <- Var_NB(m = m, n = n, Xi = Xi.HA)
+  } else if(Metric == "WR"){
+    effect_size <- log(tau_w.HA / tau_l.HA)
+    Var_H0 <- Var_logWR(m = m, n = n, Xi = Xi.H0, tau_w = tau_w.H0, tau_l = tau_l.H0)
+    Var_HA <- Var_logWR(m = m, n = n, Xi = Xi.HA, tau_w = tau_w.HA, tau_l = tau_l.HA)
+  } else if(Metric == "WO"){
+    effect_size <- log(0.5*(1 + tau_w.HA - tau_l.HA)) - log(0.5*(1 - tau_w.HA + tau_l.HA))
+    Var_H0 <- Var_logWO(m = m, n = n, Xi = Xi.H0, tau_w = tau_w.H0, tau_l = tau_l.H0)
+    Var_HA <- Var_logWO(m = m, n = n, Xi = Xi.HA, tau_w = tau_w.HA, tau_l = tau_l.HA)
+  } else if(Metric == "DOOR"){
+    effect_size <- 0.5*(1 + tau_w.HA - tau_l.HA) - 0.5
+    Var_H0 <- Var_DOOR(m = m, n = n, Xi = Xi.H0)
+    Var_HA <- Var_DOOR(m = m, n = n, Xi = Xi.HA)
+  } else {
+    stop("Invalid Metric. Choose one of 'NB', 'WR', 'WO', 'DOOR'.")
+  }
+  
+  if(any(is.na(c(Var_H0, Var_HA))) || Var_HA <= 0) return(NA)
+  
+  # Correct two-sided power calculation
+  q1 <- (z_alpha_half * sqrt(Var_H0) - abs(effect_size)) / sqrt(Var_HA)
+  q2 <- (-z_alpha_half * sqrt(Var_H0) - abs(effect_size)) / sqrt(Var_HA)
+  
+  power <- pnorm(q1, lower.tail = FALSE) + pnorm(q2, lower.tail = TRUE)
+  return(power)
+}
+
+# --- EMPIRICAL POWER FUNCTION (NOW WITH SEQUENTIAL OPTION) ---
+Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param, endpoints.Ctrl, endpoints.Trt, Follow_up.Time=200, numCores){
+  
+  # Define the core logic for a single simulation run. This can be called
+  # either sequentially or in parallel.
+  run_one_power_sim <- function(i) {
+    # It's good practice to set a unique seed for each worker for reproducibility
+    set.seed(i)
+    Pop.Ctrl <- Generating_Sample(endpoints = endpoints.Ctrl, copula_type = copula_type, copula_param = copula_param, Follow_up.Time = Follow_up.Time, N.Super = m)
+    Pop.Trt <- Generating_Sample(endpoints = endpoints.Trt, copula_type = copula_type, copula_param = copula_param, Follow_up.Time = Follow_up.Time, N.Super = n)
+    
+    Obs.Kernal <- Calc.Kernal.Matrix(Group.Treat = Pop.Trt, Group.Control = Pop.Ctrl, endpoints = endpoints.Ctrl)
+    Obs.Xi <- Calc.Xi(Win_Kernal = Obs.Kernal$Win_Kernal, Loss_Kernal = Obs.Kernal$Loss_Kernal)
+    
+    tau_w_obs <- Obs.Kernal$tau_w; tau_l_obs <- Obs.Kernal$tau_l; Obs.DeltaU <- tau_w_obs - tau_l_obs
+    Ctc.Values <- qnorm(1 - alpha/2)
+    
+    rej_NB <- FALSE; rej_WR <- FALSE; rej_WO <- FALSE; rej_DOOR <- FALSE
+    
+    Obs.VarNB <- Var_NB(m = m, n = n, Xi = Obs.Xi)
+    if (!is.na(Obs.VarNB) && Obs.VarNB > 0) { if (abs(Obs.DeltaU / sqrt(Obs.VarNB)) > Ctc.Values) rej_NB <- TRUE }
+    
+    Obs.VarLogWR <- Var_logWR(m = m, n = n, Xi = Obs.Xi, tau_w = tau_w_obs, tau_l = tau_l_obs)
+    if (!is.na(Obs.VarLogWR) && Obs.VarLogWR > 0) { if (abs(log(tau_w_obs / tau_l_obs) / sqrt(Obs.VarLogWR)) > Ctc.Values) rej_WR <- TRUE }
+    
+    Obs.VarLogWO <- Var_logWO(m = m, n = n, Xi = Obs.Xi, tau_w = tau_w_obs, tau_l = tau_l_obs)
+    if (!is.na(Obs.VarLogWO) && Obs.VarLogWO > 0) { if (abs(log((1 + Obs.DeltaU) / (1 - Obs.DeltaU)) / sqrt(Obs.VarLogWO)) > Ctc.Values) rej_WO <- TRUE }
+    
+    Obs.VarDOOR <- Var_DOOR(m = m, n = n, Xi = Obs.Xi)
+    if (!is.na(Obs.VarDOOR) && Obs.VarDOOR > 0) { if (abs(((0.5 * (1 + Obs.DeltaU)) - 0.5) / sqrt(Obs.VarDOOR)) > Ctc.Values) rej_DOOR <- TRUE }
+    
+    return(c(NB = rej_NB, WR = rej_WR, WO = rej_WO, DOOR = rej_DOOR))
+  }
+  
+  # Check if parallel execution is requested and possible
+  if (!is.null(numCores) && numCores > 1) {
+    # --- Parallel Execution ---
+    cl <- makeCluster(numCores -2)
+    clusterEvalQ(cl, {
+      library(dplyr); library(mvtnorm); library(Matrix); library(copula)
+    })
+    
+    # Export necessary variables from this function's environment to the workers
+    #clusterExport(cl, c("m", "n", "alpha", "copula_type", "copula_param", 
+    #                    "endpoints.Ctrl", "endpoints.Trt", "Follow_up.Time",
+    #                    "Generating_Sample", "Calc.Kernal.Matrix", "Calc.Xi",
+    #                    "Var_NB", "Var_logWR", "Var_logWO", "Var_DOOR"), 
+    #              envir = environment())
+    clusterExport(cl, c("m", "n", "alpha", "copula_type", "copula_param",
+                        "endpoints.Ctrl", "endpoints.Trt", "Follow_up.Time"),
+                  envir = environment())
+    clusterExport(cl, c("Generating_Sample", "Calc.Kernal.Matrix", "Calc.Xi",
+                        "Var_NB", "Var_logWR", "Var_logWO", "Var_DOOR"),
+                  envir = .GlobalEnv)
+    
+    parallel_results <- pblapply(1:RUNNING, run_one_power_sim, cl = cl)
+    stopCluster(cl)
+    results_matrix <- do.call(rbind, parallel_results)
+    
+  } else {
+    # --- Sequential Execution ---
+    cat("\nRunning Empirical Power simulation sequentially...\n")
+    pb <- txtProgressBar(min = 0, max = RUNNING, style = 3)
+    results_list <- vector("list", RUNNING)
+    for (i in 1:RUNNING) {
+      results_list[[i]] <- run_one_power_sim(i)
+      setTxtProgressBar(pb, i)
+    }
+    close(pb)
+    results_matrix <- do.call(rbind, results_list)
+  }
+  
+  # Aggregate and return results (common to both paths)
+  emp_powers <- colMeans(results_matrix, na.rm = TRUE)
+  return(as.list(emp_powers))
+}
+
+
+
+
