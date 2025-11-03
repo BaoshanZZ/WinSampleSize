@@ -57,9 +57,9 @@ Calc.Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
       Y_Control <- Group.Control[[paste0("Continuous_", i)]]
       # Use the threshold provided in the endpoint specification
       threshold <- endpoint$threshold
-      # W_ij is 1 when (Y_Treat - Y_Control) > threshold; Bigger better
+      # W_ij is 1 when (Y_Treat - Y_Control) > threshold; Higher Win
       W_ij <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (x - y) > threshold }) * 1
-      # L_ij is 1 when (Y_Control - Y_Treat) > threshold
+      # L_ij is 1 when (Y_Control - Y_Treat) > threshold; Lower Loss
       L_ij <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (y - x) > threshold }) * 1
       Omega_ij <- 1 - W_ij - L_ij
     } 
@@ -265,16 +265,20 @@ Calc.TheoPower <- function(tau_w.HA, tau_l.HA, Xi.HA, Xi.H0, tau_w.H0, tau_l.H0,
   return(power)
 }
 
-# --- EMPIRICAL POWER FUNCTION (NOW WITH SEQUENTIAL OPTION) ---
-Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param, endpoints.Ctrl, endpoints.Trt, Follow_up.Time=200, numCores){
+
+# --- EMPIRICAL POWER FUNCTION (WITH PARALLEL OPTION) ---
+
+Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param, endpoints.Ctrl, endpoints.Trt, 
+                          Follow_up.Time = 200, useParallel = FALSE, numCores = NULL){
   
-  # Define the core logic for a single simulation run. This can be called
-  # either sequentially or in parallel.
+  # Define the core logic for a single simulation run. This can be called either sequentially or in parallel.
   run_one_power_sim <- function(i) {
     # It's good practice to set a unique seed for each worker for reproducibility
     set.seed(i)
-    Pop.Ctrl <- Generating_Sample(endpoints = endpoints.Ctrl, copula_type = copula_type, copula_param = copula_param, Follow_up.Time = Follow_up.Time, N.Super = m)
-    Pop.Trt <- Generating_Sample(endpoints = endpoints.Trt, copula_type = copula_type, copula_param = copula_param, Follow_up.Time = Follow_up.Time, N.Super = n)
+    Pop.Ctrl <- Generating_Sample(endpoints = endpoints.Ctrl, copula_type = copula_type, copula_param = copula_param, 
+                                  Follow_up.Time = Follow_up.Time, N.Super = m)
+    Pop.Trt <- Generating_Sample(endpoints = endpoints.Trt, copula_type = copula_type, copula_param = copula_param, 
+                                 Follow_up.Time = Follow_up.Time, N.Super = n)
     
     Obs.Kernal <- Calc.Kernal.Matrix(Group.Treat = Pop.Trt, Group.Control = Pop.Ctrl, endpoints = endpoints.Ctrl)
     Obs.Xi <- Calc.Xi(Win_Kernal = Obs.Kernal$Win_Kernal, Loss_Kernal = Obs.Kernal$Loss_Kernal)
@@ -284,6 +288,7 @@ Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param
     
     rej_NB <- FALSE; rej_WR <- FALSE; rej_WO <- FALSE; rej_DOOR <- FALSE
     
+    # Two-sided Rejection Rate
     Obs.VarNB <- Var_NB(m = m, n = n, Xi = Obs.Xi)
     if (!is.na(Obs.VarNB) && Obs.VarNB > 0) { if (abs(Obs.DeltaU / sqrt(Obs.VarNB)) > Ctc.Values) rej_NB <- TRUE }
     
@@ -300,19 +305,13 @@ Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param
   }
   
   # Check if parallel execution is requested and possible
-  if (!is.null(numCores) && numCores > 1) {
+  if (useParallel && !is.null(numCores) && numCores > 2) { 
     # --- Parallel Execution ---
+    cat(paste("\nRunning Empirical Power simulation in PARALLEL using", numCores, "cores (", numCores - 2, "workers)...\n"))
     cl <- makeCluster(numCores -2)
     clusterEvalQ(cl, {
       library(dplyr); library(mvtnorm); library(Matrix); library(copula)
     })
-    
-    # Export necessary variables from this function's environment to the workers
-    #clusterExport(cl, c("m", "n", "alpha", "copula_type", "copula_param", 
-    #                    "endpoints.Ctrl", "endpoints.Trt", "Follow_up.Time",
-    #                    "Generating_Sample", "Calc.Kernal.Matrix", "Calc.Xi",
-    #                    "Var_NB", "Var_logWR", "Var_logWO", "Var_DOOR"), 
-    #              envir = environment())
     clusterExport(cl, c("m", "n", "alpha", "copula_type", "copula_param",
                         "endpoints.Ctrl", "endpoints.Trt", "Follow_up.Time"),
                   envir = environment())
