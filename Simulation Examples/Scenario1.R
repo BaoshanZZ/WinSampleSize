@@ -1,15 +1,13 @@
-# Load libraries
 library(dplyr)
 library(mvtnorm)
 library(Matrix)
 library(parallel)
 library(pbapply)
-
-# Source your custom functions
 source("DynSampleGener.R")
 source("DynWinVarEstFUNC.R")
 
 # --- Simulation Parameters ---
+
 # Define endpoints (these remain constant).               
 endpoints.HA <- list(
   # Y1: Adjusted for a high tie rate (~50%) to ensure Y2 is evaluated often.
@@ -35,11 +33,15 @@ cat("--- Pre-calculation: Determining parameters and fixed sample size for rho =
 CORR_rho0 <- matrix(c(1, 0, 0, 1), nrow = 2)
 cl_pre <- makeCluster(numCores)
 clusterEvalQ(cl_pre, {
-  library(dplyr); library(mvtnorm); library(Matrix)
-  source("DynSampleGener.R"); source("DynWinVarEstFUNC.R")
-})
-clusterExport(cl_pre, c("M", "N", "endpoints.H0", "endpoints.HA", "CORR_rho0"))
+  library(dplyr); library(mvtnorm); library(Matrix); library(copula) })
+clusterExport(cl_pre, 
+              c("Generating_Sample", "Calc.Kernal.Matrix", "Calc.Xi"), 
+              envir = .GlobalEnv)
+clusterExport(cl_pre, c("M", "N", "endpoints.H0", "endpoints.HA", "CORR_rho0"),
+              envir = environment())
+
 pre_run_sim <- function(b) {
+  set.seed(b) 
   PopData_H0 <- Generating_Sample(endpoints = endpoints.H0, copula_type = "Gaussian", copula_param = CORR_rho0, N.Super = M + N)
   Pop.Treat.HA <- Generating_Sample(endpoints = endpoints.HA, copula_type = "Gaussian", copula_param = CORR_rho0, N.Super = N)
   Pop.Treat.H0 <- PopData_H0[1:M, ]; Pop.Control.H0 <- PopData_H0[(M + 1):(N + M), ]
@@ -81,9 +83,21 @@ TheoPower.NB_rho0 <- Calc.TheoPower(tau_w.HA = pre_mean_taus["tau_w_HA"], tau_l.
 TheoPower.WO_rho0 <- Calc.TheoPower(tau_w.HA = pre_mean_taus["tau_w_HA"], tau_l.HA = pre_mean_taus["tau_l_HA"], tau_w.H0 = pre_mean_taus["tau_w_H0"], tau_l.H0 = pre_mean_taus["tau_l_H0"], m = fixed_m_sample_wr, Xi.H0 = as.list(pre_mean_xi_h0), Xi.HA = as.list(pre_mean_xi_ha), alpha = alpha, Sample.rho = Sample.rho, Metric = "WO")
 TheoPower.DOOR_rho0 <- Calc.TheoPower(tau_w.HA = pre_mean_taus["tau_w_HA"], tau_l.HA = pre_mean_taus["tau_l_HA"], tau_w.H0 = pre_mean_taus["tau_w_H0"], tau_l.H0 = pre_mean_taus["tau_l_H0"], m = fixed_m_sample_wr, Xi.H0 = as.list(pre_mean_xi_h0), Xi.HA = as.list(pre_mean_xi_ha), alpha = alpha, Sample.rho = Sample.rho, Metric = "DOOR")
 
+# Empirical Power
 cat("\n--- Calculating Empirical Power for rho = 0 (this may take a while) ---\n")
 emp_power_rho0 <- if (!is.na(fixed_m_sample_wr)) {
-  Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.HA, copula_type = "Gaussian", copula_param = CORR_rho0, numCores = numCores)
+  Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
+                endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.HA, 
+                copula_type = "Gaussian", copula_param = CORR_rho0, numCores = numCores, useParallel = TRUE)
+} else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
+
+# Empirical Type I error
+cat("\n--- Calculating Type I Error for rho = 0 ---\n")
+type_I_error_rho0 <- if (!is.na(fixed_m_sample_wr)) {
+  Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
+                endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.H0,
+                copula_type = "Gaussian", copula_param = CORR_rho0, 
+                useParallel = TRUE, numCores = numCores)
 } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
 
 # Store results for rho=0
@@ -107,6 +121,10 @@ results_list_rho0$Theo_Power_NB <- TheoPower.NB_rho0; results_list_rho0$Theo_Pow
 results_list_rho0$Theo_Power_WO <- TheoPower.WO_rho0; results_list_rho0$Theo_Power_DOOR <- TheoPower.DOOR_rho0
 results_list_rho0$Emp_Power_NB <- emp_power_rho0$NB; results_list_rho0$Emp_Power_WR <- emp_power_rho0$WR
 results_list_rho0$Emp_Power_WO <- emp_power_rho0$WO; results_list_rho0$Emp_Power_DOOR <- emp_power_rho0$DOOR
+results_list_rho0$Type_I_Error_NB <- type_I_error_rho0$NB
+results_list_rho0$Type_I_Error_WR <- type_I_error_rho0$WR
+results_list_rho0$Type_I_Error_WO <- type_I_error_rho0$WO
+results_list_rho0$Type_I_Error_DOOR <- type_I_error_rho0$DOOR
 all_results[["0.0"]] <- as.data.frame(results_list_rho0)
 
 
@@ -153,7 +171,17 @@ for (rho in rho_values[rho_values != 0]) {
   
   cat("\n--- Calculating Empirical Power (this may take a while) ---\n")
   emp_power <- if (!is.na(fixed_m_sample_wr)) {
-    Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.HA, copula_type = "Gaussian", copula_param = CORR, numCores = numCores)
+    Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
+                  endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.HA, copula_type = "Gaussian", copula_param = CORR, 
+                  useParallel = TRUE, numCores = numCores)
+  } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
+  
+  cat("\n--- Calculating Type I Error for current rho ---\n")
+  type_I_error <- if (!is.na(fixed_m_sample_wr)) {
+    Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
+                  endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.H0,
+                  copula_type = "Gaussian", copula_param = CORR, 
+                  useParallel = TRUE, numCores = numCores)
   } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
   
   results_list <- list()
@@ -181,6 +209,9 @@ for (rho in rho_values[rho_values != 0]) {
   
   results_list$Emp_Power_NB <- emp_power$NB; results_list$Emp_Power_WR <- emp_power$WR
   results_list$Emp_Power_WO <- emp_power$WO; results_list$Emp_Power_DOOR <- emp_power$DOOR
+  
+  results_list$Type_I_Error_NB <- type_I_error$NB; results_list$Type_I_Error_WR <- type_I_error$WR
+  results_list$Type_I_Error_WO <- type_I_error$WO; results_list$Type_I_Error_DOOR <- type_I_error$DOOR
   
   all_results[[as.character(rho)]] <- as.data.frame(results_list)
 }
