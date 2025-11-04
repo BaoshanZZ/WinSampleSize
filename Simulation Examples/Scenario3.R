@@ -1,31 +1,31 @@
+rm(list=ls())
+# Load libraries
 library(dplyr)
 library(mvtnorm)
 library(Matrix)
 library(parallel)
 library(pbapply)
+setwd("/hpc/home/bz91/WinSampleSize")
+# Source your custom functions
 source("DynSampleGener.R")
 source("DynWinVarEstFUNC.R")
 
 # --- Simulation Parameters ---
-
-# Define endpoints (these remain constant).               
+# Define endpoints (these remain constant)
 endpoints.HA <- list(
-  # Y1: Adjusted for a high tie rate (~50%) to ensure Y2 is evaluated often.
-  # We make the means even closer to the threshold.
-  list(type = "continuous", params = list(mu = 4, sigma = 10), threshold = 8),
-  # Y2: A clear but not overwhelming treatment effect.
-  list(type = "continuous", params = list(mu = 40, sigma = 18), threshold = 8)
+  list(type = "survival", dist = "Exponential", params = list(lambda = 0.035)), # Median T = 19.8
+  list(type = "continuous", params = list(mu = 6, sigma = 10), threshold = 5)
 )
 
 endpoints.H0 <- list(
-  # Y1: High tie rate under the null hypothesis as well.
-  list(type = "continuous", params = list(mu = 3.5, sigma = 10), threshold = 8),
-  list(type = "continuous", params = list(mu = 30, sigma = 18), threshold = 8)
+  list(type = "survival", dist = "Exponential", params = list(lambda = 0.04)), # Median T = 17.3
+  list(type = "continuous", params = list(mu = 3, sigma = 10), threshold = 5)
 )
+Follow_up.Time <- 12
 
-set.seed(123); M <- 8000; N <- 8000; B <- 300; numCores <- 8 
+set.seed(123); M <- 8000; N <- 8000; B <- 800; numCores <- 10
 RUNNING_emp_power <- 10000 # Number of iterations for empirical power calculation
-rho_values <- c(0.0,  0.8)
+rho_values <- c(0.0,  0.2, 0.4, 0.6, 0.8)
 all_results <- list()
 
 # --- PRE-LOOP: CALCULATE PARAMETERS AND FIXED SS FOR RHO = 0 ---
@@ -37,13 +37,13 @@ clusterEvalQ(cl_pre, {
 clusterExport(cl_pre, 
               c("Generating_Sample", "Calc.Kernal.Matrix", "Calc.Xi"), 
               envir = .GlobalEnv)
-clusterExport(cl_pre, c("M", "N", "endpoints.H0", "endpoints.HA", "CORR_rho0"),
+clusterExport(cl_pre, c("M", "N", "endpoints.H0", "endpoints.HA", "CORR_rho0", "Follow_up.Time", "B"),
               envir = environment())
 
 pre_run_sim <- function(b) {
   set.seed(b) 
-  PopData_H0 <- Generating_Sample(endpoints = endpoints.H0, copula_type = "Gaussian", copula_param = CORR_rho0, N.Super = M + N)
-  Pop.Treat.HA <- Generating_Sample(endpoints = endpoints.HA, copula_type = "Gaussian", copula_param = CORR_rho0, N.Super = N)
+  PopData_H0 <- Generating_Sample(endpoints = endpoints.H0, copula_type = "Gaussian", copula_param = CORR_rho0, N.Super = M + N, Follow_up.Time = Follow_up.Time)
+  Pop.Treat.HA <- Generating_Sample(endpoints = endpoints.HA, copula_type = "Gaussian", copula_param = CORR_rho0, N.Super = N, Follow_up.Time = Follow_up.Time)
   Pop.Treat.H0 <- PopData_H0[1:M, ]; Pop.Control.H0 <- PopData_H0[(M + 1):(N + M), ]
   Kernal_H0 <- Calc.Kernal.Matrix(Group.Treat = Pop.Treat.H0, Group.Control = Pop.Control.H0, endpoints = endpoints.H0)
   Kernal_HA <- Calc.Kernal.Matrix(Group.Treat = Pop.Treat.HA, Group.Control = Pop.Control.H0, endpoints = endpoints.HA)
@@ -88,7 +88,7 @@ cat("\n--- Calculating Empirical Power for rho = 0 (this may take a while) ---\n
 emp_power_rho0 <- if (!is.na(fixed_m_sample_wr)) {
   Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
                 endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.HA, 
-                copula_type = "Gaussian", copula_param = CORR_rho0, numCores = numCores, useParallel = TRUE)
+                copula_type = "Gaussian", copula_param = CORR_rho0, numCores = numCores, useParallel = TRUE, Follow_up.Time = Follow_up.Time)
 } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
 
 # Empirical Type I error
@@ -97,7 +97,7 @@ type_I_error_rho0 <- if (!is.na(fixed_m_sample_wr)) {
   Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
                 endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.H0,
                 copula_type = "Gaussian", copula_param = CORR_rho0, 
-                useParallel = TRUE, numCores = numCores)
+                useParallel = TRUE, numCores = numCores, Follow_up.Time = Follow_up.Time)
 } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
 
 # Store results for rho=0
@@ -144,8 +144,8 @@ for (rho in rho_values[rho_values != 0]) {
   clusterExport(cl, c("M", "N", "endpoints.H0", "endpoints.HA", "CORR", "Follow_up.Time", "B"),
                 envir = environment())
   run_simulation_b <- function(b) {
-    PopData_H0 <- Generating_Sample(endpoints = endpoints.H0, copula_type = "Gaussian", copula_param = CORR, N.Super = M + N)
-    Pop.Treat.HA <- Generating_Sample(endpoints = endpoints.HA, copula_type = "Gaussian", copula_param = CORR, N.Super = N)
+    PopData_H0 <- Generating_Sample(endpoints = endpoints.H0, copula_type = "Gaussian", copula_param = CORR, N.Super = M + N, Follow_up.Time = Follow_up.Time)
+    Pop.Treat.HA <- Generating_Sample(endpoints = endpoints.HA, copula_type = "Gaussian", copula_param = CORR, N.Super = N, Follow_up.Time = Follow_up.Time)
     Pop.Treat.H0 <- PopData_H0[1:M, ]; Pop.Control.H0 <- PopData_H0[(M + 1):(N + M), ]
     Kernal_H0 <- Calc.Kernal.Matrix(Group.Treat = Pop.Treat.H0, Group.Control = Pop.Control.H0, endpoints = endpoints.H0)
     Kernal_HA <- Calc.Kernal.Matrix(Group.Treat = Pop.Treat.HA, Group.Control = Pop.Control.H0, endpoints = endpoints.HA)
@@ -177,7 +177,7 @@ for (rho in rho_values[rho_values != 0]) {
   emp_power <- if (!is.na(fixed_m_sample_wr)) {
     Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
                   endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.HA, copula_type = "Gaussian", copula_param = CORR, 
-                  useParallel = TRUE, numCores = numCores)
+                  useParallel = TRUE, numCores = numCores, Follow_up.Time = Follow_up.Time)
   } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
   
   cat("\n--- Calculating Type I Error for current rho ---\n")
@@ -185,7 +185,7 @@ for (rho in rho_values[rho_values != 0]) {
     Calc.AttPower(RUNNING = RUNNING_emp_power, alpha = alpha, m = fixed_m_sample_wr, n = fixed_n_sample_wr, 
                   endpoints.Ctrl = endpoints.H0, endpoints.Trt = endpoints.H0,
                   copula_type = "Gaussian", copula_param = CORR, 
-                  useParallel = TRUE, numCores = numCores)
+                  useParallel = TRUE, numCores = numCores, Follow_up.Time = Follow_up.Time)
   } else { list(NB=NA, WR=NA, WO=NA, DOOR=NA) }
   
   results_list <- list()
@@ -224,4 +224,4 @@ for (rho in rho_values[rho_values != 0]) {
 final_summary_table <- bind_rows(all_results)
 print(final_summary_table)
 
-write.csv(final_summary_table, "Simulation/Summary.Scenario1.csv", row.names = FALSE)
+write.csv(final_summary_table, "Simulation Examples/Summary.Scenario3.csv", row.names = FALSE)
