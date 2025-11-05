@@ -14,7 +14,7 @@ source("DynWinVarEstFUNC.R")
 # Define endpoints (these remain constant)
 endpoints.HA <- list(
   list(type = "survival", dist = "Exponential", params = list(lambda = 0.035)), # Median T = 19.8
-  list(type = "continuous", params = list(mu = 6, sigma = 10), threshold = 5)
+  list(type = "continuous", params = list(mu = 8, sigma = 10), threshold = 5)
 )
 
 endpoints.H0 <- list(
@@ -25,7 +25,7 @@ Follow_up.Time <- 12
 
 set.seed(123); M <- 8000; N <- 8000; B <- 800; numCores <- 10
 RUNNING_emp_power <- 10000 # Number of iterations for empirical power calculation
-rho_values <- c(0.0,  0.2, 0.4, 0.6, 0.8)
+rho_values <- c(0.0, 0.2, 0.4, 0.6,  0.8)
 all_results <- list()
 
 # --- PRE-LOOP: CALCULATE PARAMETERS AND FIXED SS FOR RHO = 0 ---
