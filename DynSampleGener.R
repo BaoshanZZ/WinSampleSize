@@ -1,29 +1,28 @@
-# Load necessary library
+# Load necessary libraries
 library(copula)
+library(survival) # Used for calculating Harrell's C-index
 
+#' Generate samples based on marginal distributions and a copula structure
 Generating_Sample <- function(
     endpoints,
     copula_type = "Clayton",    # Options: "Clayton", "Frank", "Gumbel", "Gaussian"
-    copula_param = NULL,        # For Archimedes ("Clayton", "Frank", "Gumbel"): Input Kendall's tau; For Gaussian: correlation matrix
+    copula_param = NULL,        # For Archimedes: Input Kendall's tau; For Gaussian: correlation matrix
     Follow_up.Time = 180,
     N.Super = 20000
 ){
   N.endpoints <- length(endpoints)
   cop_dim <- N.endpoints
-
+  
   # Create the copula
   if (copula_type %in% c("Clayton", "Frank", "Gumbel")){
-    # For Archimedes copulas, expect a single parameter (Kendall's tau)
     if (is.null(copula_param)){
       stop("Please provide a copula_param (Kendall's tau) for the Archimedean copula.")
     }
-    # Convert Kendall's tau to copula parameter theta
     tau <- copula_param
     if (copula_type == "Clayton"){
       theta <- 2 * tau / (1 - tau)
       cop <- claytonCopula(param = theta, dim = cop_dim)
     } else if (copula_type == "Frank"){
-      # Use numerical inversion for theta
       cop_temp <- frankCopula(dim = cop_dim)
       theta <- iTau(cop_temp, tau)
       cop <- frankCopula(param = theta, dim = cop_dim)
@@ -32,19 +31,15 @@ Generating_Sample <- function(
       cop <- gumbelCopula(param = theta, dim = cop_dim)
     }
   } else if (copula_type == "Gaussian"){
-    # For Gaussian copula, expect a correlation matrix
     if (is.null(copula_param)){
       stop("Please provide a copula_param (correlation matrix) for the Gaussian copula.")
     }
-    # Check that the correlation matrix is valid
     if (!is.matrix(copula_param) || nrow(copula_param) != cop_dim || ncol(copula_param) != cop_dim){
       stop("copula_param must be a square matrix with dimensions equal to the number of endpoints.")
     }
-    # Ensure the correlation matrix is positive definite
     if (!all(eigen(copula_param)$values > 0)){
       stop("The provided correlation matrix is not positive definite.")
     }
-    # Create the Gaussian copula
     cop <- normalCopula(param = P2p(copula_param), dim = cop_dim, dispstr = "un")
   } else {
     stop("Unsupported copula type. Please choose from 'Clayton', 'Frank', 'Gumbel', or 'Gaussian'.")
@@ -67,35 +62,24 @@ Generating_Sample <- function(
     
     if (endpoint$type == "survival"){
       survival_indices <- c(survival_indices, i)
-      dist <- endpoint$dist
-      params <- endpoint$params
-      # Generate survival times using the inverse CDF (quantile function)
-      if (dist == "Exponential"){
-        rate <- params$lambda
-        T <- qexp(U, rate = rate)
-      } else if (dist == "Weibull"){
-        shape <- params$shape
-        scale <- params$scale
-        T <- qweibull(U, shape = shape, scale = scale)
-      } else {
-        stop(paste("Unsupported distribution for:", dist))
-      }
+      dist <- endpoint$dist; params <- endpoint$params
+      if (dist == "Exponential"){ T <- qexp(U, rate = params$lambda) }
+      else if (dist == "Weibull"){ T <- qweibull(U, shape = params$shape, scale = params$scale) }
+      else { stop(paste("Unsupported distribution for:", dist)) }
       data_list[[i]] <- list(T = T)
     } else if (endpoint$type == "ordinal"){
       ordinal_indices <- c(ordinal_indices, i)
-      prob <- endpoint$prob
-      cumprob <- cumsum(prob)
-      categories <- findInterval(U, cumprob) + 1 # Categories start from 1
+      prob <- endpoint$prob; cumprob <- cumsum(prob)
+      categories <- findInterval(U, cumprob) + 1
       data_list[[i]] <- list(Categories = categories)
     } else if (endpoint$type == "binary"){
       binary_indices <- c(binary_indices, i)
-      P <- endpoint$prob # Prob of Success (Y = 1) 
+      P <- endpoint$prob
       Y <- as.numeric(U > (1-P))
       data_list[[i]] <- list(Y = Y)
     } else if (endpoint$type == "continuous"){
       continuous_indices <- c(continuous_indices, i)
-      mu <- endpoint$params$mu
-      sigma <- endpoint$params$sigma
+      mu <- endpoint$params$mu; sigma <- endpoint$params$sigma
       Y <- qnorm(U, mean = mu, sd = sigma)
       data_list[[i]] <- list(Y = Y)
     } else if (endpoint$type == "count"){
@@ -108,48 +92,119 @@ Generating_Sample <- function(
     }
   }
   
-  # Generate censoring times
+  # Process final data frame with censoring
   C <- rep(Follow_up.Time, N.Super)
-  
-  # Initialize data frame
   data <- data.frame(Censoring_Time = C)
   
-  # Process survival endpoints
   for (i in survival_indices){
-    T <- data_list[[i]]$T
-    # Apply censoring
-    Y <- pmin(T, C)
-    Delta <- as.numeric(T <= C)
-    
-    data[[paste0("T_", i)]] <- T
-    data[[paste0("Y_", i)]] <- Y
-    data[[paste0("delta_", i)]] <- Delta
+    T <- data_list[[i]]$T; Y <- pmin(T, C); Delta <- as.numeric(T <= C)
+    data[[paste0("T_", i)]] <- T; data[[paste0("Y_", i)]] <- Y; data[[paste0("delta_", i)]] <- Delta
   }
-  
-  # Process ordinal endpoints
   for (i in ordinal_indices){
-    categories <- data_list[[i]]$Categories
-    endpoint <- endpoints[[i]]
+    categories <- data_list[[i]]$Categories; endpoint <- endpoints[[i]]
     data[[paste0("Ordinal_", i)]] <- factor(categories, levels = 1:length(endpoint$prob))
   }
-  
-  # Process binary endpoints
-  for (i in binary_indices){
-    Y <- data_list[[i]]$Y
-    data[[paste0("Binary_", i)]] <- Y
-  }
-  
-  # Process continuous endpoints
-  for (i in continuous_indices){
-    Y <- data_list[[i]]$Y
-    data[[paste0("Continuous_", i)]] <- Y
-  }
-  
-  # Process count endpoints
-  for (i in count_indices){
-    Y <- data_list[[i]]$Y
-    data[[paste0("Count_", i)]] <- Y
-  }
+  for (i in binary_indices){ data[[paste0("Binary_", i)]] <- data_list[[i]]$Y }
+  for (i in continuous_indices){ data[[paste0("Continuous_", i)]] <- data_list[[i]]$Y }
+  for (i in count_indices){ data[[paste0("Count_", i)]] <- data_list[[i]]$Y }
   
   return(data)
+}
+
+#' Measure the observed Kendall's Tau between endpoints
+#' @param data The data frame generated by Generating_Sample
+#' @param endpoints The endpoint configuration list
+#' When there two only two endpoints in the HCE
+CALC.Observed.Corr <- function(data, endpoints) {
+  # Defaults to calculating the correlation between the first two endpoints (D1 and D2)
+  # The 'endpoints' argument follows the list structure used in Generating_Sample
+  
+  get_val <- function(idx) {
+    type <- endpoints[[idx]]$type
+    if (type == "survival") return(list(val = paste0("Y_", idx), status = paste0("delta_", idx), isTTE = TRUE))
+    if (type == "binary") return(list(val = paste0("Binary_", idx), isTTE = FALSE))
+    if (type == "continuous") return(list(val = paste0("Continuous_", idx), isTTE = FALSE))
+    if (type == "ordinal") return(list(val = paste0("Ordinal_", idx), isTTE = FALSE))
+  }
+  
+  d1 <- get_val(1)
+  d2 <- get_val(2)
+  
+  # --- Case A: Includes Survival data (Conversion via Harrell's C) ---
+  if (d1$isTTE || d2$isTTE) {
+    if (d1$isTTE) {
+      # Measures concordance between D2 and TTE_D1
+      # Note: concordance defaults to calculating positive correlation
+      fit <- concordance(Surv(data[[d1$val]], data[[d1$status]]) ~ data[[d2$val]])
+      c_index <- fit$concordance
+    } else {
+      fit <- concordance(Surv(data[[d2$val]], data[[d2$status]]) ~ data[[d1$val]])
+      c_index <- fit$concordance
+    }
+    # Convert to Kendall's Tau scale: tau = 2C - 1
+    tau_obs <- 2 * c_index - 1
+    
+  } else {
+    # --- Case B: Fully observed data (Direct calculation of Kendall's Tau) ---
+    # as.numeric ensures that factors (Ordinal) can be computed
+    tau_obs <- cor(as.numeric(data[[d1$val]]), 
+                   as.numeric(data[[d2$val]]), 
+                   method = "kendall", use = "complete.obs")
+  }
+  
+  return(tau_obs)
+}
+
+
+#' When there are more than two endpoints in the HCE and a correlation 
+#' #' CALC.Observed.CorrMul
+#' @description Dynamically calculates an observed correlation matrix (Kendall's Tau scale) for any number of endpoints.
+#' @param data The dataframe from Generating_Sample
+#' @param endpoints The endpoint configuration list
+CALC.Observed.CorrMul <- function(data, endpoints) {
+  Q <- length(endpoints)
+  corr_matrix <- matrix(0, nrow = Q, ncol = Q)
+  diag(corr_matrix) <- 1
+  
+  # Helper to identify columns and types
+  get_info <- function(idx) {
+    type <- endpoints[[idx]]$type
+    if (type == "survival") return(list(val = paste0("Y_", idx), stat = paste0("delta_", idx), isTTE = TRUE))
+    col_name <- switch(type,
+                       "binary" = paste0("Binary_", idx),
+                       "continuous" = paste0("Continuous_", idx),
+                       "count" = paste0("Count_", idx),
+                       "ordinal" = paste0("Ordinal_", idx))
+    return(list(val = col_name, isTTE = FALSE))
+  }
+  
+  # Loop through pairs to fill the matrix
+  for (i in 1:(Q - 1)) {
+    for (j in (i + 1):Q) {
+      d1 <- get_info(i)
+      d2 <- get_info(j)
+      
+      # Case A: At least one endpoint is TTE (Use Harrell's C-index conversion)
+      if (d1$isTTE || d2$isTTE) {
+        if (d1$isTTE) {
+          fit <- concordance(Surv(data[[d1$val]], data[[d1$stat]]) ~ data[[d2$val]])
+        } else {
+          fit <- concordance(Surv(data[[d2$val]], data[[d2$stat]]) ~ data[[d1$val]])
+        }
+        tau_val <- 2 * fit$concordance - 1
+      } else {
+        # Case B: Both are observed/discrete (Direct Kendall's Tau)
+        tau_val <- cor(as.numeric(data[[d1$val]]), as.numeric(data[[d2$val]]), 
+                       method = "kendall", use = "complete.obs")
+      }
+      
+      corr_matrix[i, j] <- corr_matrix[j, i] <- tau_val
+    }
+  }
+  
+  # Set names for clarity
+  endpoint_names <- paste0("D", 1:Q, "_", sapply(endpoints, `[[`, "type"))
+  rownames(corr_matrix) <- colnames(corr_matrix) <- endpoint_names
+  
+  return(corr_matrix)
 }

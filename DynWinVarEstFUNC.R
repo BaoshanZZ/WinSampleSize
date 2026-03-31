@@ -275,10 +275,10 @@ Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param
   run_one_power_sim <- function(i) {
     # It's good practice to set a unique seed for each worker for reproducibility
     set.seed(i)
-    Pop.Ctrl <- Generating_Sample(endpoints = endpoints.Ctrl, copula_type = copula_type, copula_param = copula_param, 
-                                  Follow_up.Time = Follow_up.Time, N.Super = m)
-    Pop.Trt <- Generating_Sample(endpoints = endpoints.Trt, copula_type = copula_type, copula_param = copula_param, 
-                                 Follow_up.Time = Follow_up.Time, N.Super = n)
+    Pop.Ctrl <- Generating_Sample(endpoints = endpoints.Ctrl, copula_type = copula_type, copula_param = copula_param,
+                                  Follow_up.Time = Follow_up.Time, N.Super = n)
+    Pop.Trt <- Generating_Sample(endpoints = endpoints.Trt, copula_type = copula_type, copula_param = copula_param,
+                                 Follow_up.Time = Follow_up.Time, N.Super = m)
     
     Obs.Kernal <- Calc.Kernal.Matrix(Group.Treat = Pop.Trt, Group.Control = Pop.Ctrl, endpoints = endpoints.Ctrl)
     Obs.Xi <- Calc.Xi(Win_Kernal = Obs.Kernal$Win_Kernal, Loss_Kernal = Obs.Kernal$Loss_Kernal)

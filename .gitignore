@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+.DS_Store
+.codex/
+core.dcc-*
+precalc_baseline.rds
+result_*.rds
+HeartFID_output/*.rds
