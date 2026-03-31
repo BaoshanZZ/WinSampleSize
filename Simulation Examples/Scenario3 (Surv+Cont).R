@@ -7,7 +7,6 @@ library(pbapply)
 library(survival)
 setwd("/hpc/home/bz91/WinSampleSize")
 source("DynWinVarEstFUNC.R")
-source("DynWinVarEstFUNC_FAST.R")
 source("Simulation Examples/SimulationEngine.R")
 
 # --- Simulation Parameters ---
@@ -58,6 +57,5 @@ config <- list(
   observed_corr_fun = NULL
 )
 
-final_summary_table <- Run_Simulation_V2(config = config, kernel_fun = Calc.Kernal.Matrix.Fast)
-
+final_summary_table <- Run_Simulation_V2(config = config, kernel_fun = Calc.Kernal.Matrix)
 

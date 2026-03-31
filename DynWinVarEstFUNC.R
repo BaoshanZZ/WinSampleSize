@@ -6,98 +6,75 @@ Calc.Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
   N <- nrow(Group.Control)
   num_endpoints <- length(endpoints)
   
-  # Initialize lists to store W_ij, L_ij, Omega_ij matrices for each endpoint
-  Endpoint_Matrices <- vector("list", num_endpoints)
-  
-  # Initialize Omega_Kernal to ones for the starting point
+  Win_Kernal <- matrix(0, nrow = M, ncol = N)
+  Loss_Kernal <- matrix(0, nrow = M, ncol = N)
   Omega_Kernal <- matrix(1, nrow = M, ncol = N)
   
-  # Loop over endpoints according to their hierarchy
+  tau_w_list <- numeric(num_endpoints)
+  tau_l_list <- numeric(num_endpoints)
+  
   for (i in seq_along(endpoints)){
     endpoint <- endpoints[[i]]
     endpoint_type <- endpoint$type
-    endpoint_name <- paste0(endpoint$type, "_", i)
     
-    # Initialize W_ij, L_ij, Omega_ij matrices
-    W_ij <- Matrix(0, nrow = M, ncol = N, sparse = TRUE)
-    L_ij <- Matrix(0, nrow = M, ncol = N, sparse = TRUE)
-    Omega_ij <- Matrix(0, nrow = M, ncol = N, sparse = TRUE)
     if (endpoint_type == "survival"){
-      # Extract survival times and event indicators
       Y_Treat <- Group.Treat[[paste0("Y_", i)]]
-      Delta_Treat <- Group.Treat[[paste0("delta_", i)]] # Observed indicator
+      Delta_Treat <- Group.Treat[[paste0("delta_", i)]]
       Y_Control <- Group.Control[[paste0("Y_", i)]]
       Delta_Control <- Group.Control[[paste0("delta_", i)]]
-      # Calculate W_ij and L_ij matrices
-      W_ij <- (outer(Y_Treat, Y_Control, ">") & matrix(Delta_Control, nrow = M, ncol = N, byrow = TRUE)) * 1
-      L_ij <- (outer(Y_Treat, Y_Control, "<") & matrix(Delta_Treat, nrow = M, ncol = N, byrow = FALSE)) * 1
-      Omega_ij <- (1 - W_ij - L_ij)
+      
+      W_raw <- outer(Y_Treat, Y_Control, ">") &
+        matrix(Delta_Control, nrow = M, ncol = N, byrow = TRUE)
+      L_raw <- outer(Y_Treat, Y_Control, "<") &
+        matrix(Delta_Treat, nrow = M, ncol = N, byrow = FALSE)
     } 
     else if (endpoint_type == "ordinal"){
-      # Extract ordinal values
       Y_Treat <- as.integer(Group.Treat[[paste0("Ordinal_", i)]])
       Y_Control <- as.integer(Group.Control[[paste0("Ordinal_", i)]])
-      # For ordinal variables, bigger values are better
-      W_ij <- (outer(Y_Treat, Y_Control, ">")) * 1
-      L_ij <- (outer(Y_Treat, Y_Control, "<")) * 1
-      Omega_ij <- (outer(Y_Treat, Y_Control, "==")) * 1
+      
+      W_raw <- outer(Y_Treat, Y_Control, ">")
+      L_raw <- outer(Y_Treat, Y_Control, "<")
     } 
     else if (endpoint_type == "binary"){
-      # Extract binary values
       Y_Treat <- Group.Treat[[paste0("Binary_", i)]]
       Y_Control <- Group.Control[[paste0("Binary_", i)]]
-      # Assuming Y = 1 is success, Y = 0 is event
-      W_ij <- (outer(Y_Treat, Y_Control, ">")) * 1
-      L_ij <- (outer(Y_Treat, Y_Control, "<")) * 1
-      Omega_ij <- (outer(Y_Treat, Y_Control, "==")) * 1
+      
+      W_raw <- outer(Y_Treat, Y_Control, ">")
+      L_raw <- outer(Y_Treat, Y_Control, "<")
     } 
     else if (endpoint_type == "continuous"){
-      # Extract continuous values
       Y_Treat <- Group.Treat[[paste0("Continuous_", i)]]
       Y_Control <- Group.Control[[paste0("Continuous_", i)]]
-      # Use the threshold provided in the endpoint specification
       threshold <- endpoint$threshold
-      # W_ij is 1 when (Y_Treat - Y_Control) > threshold; Higher Win
-      W_ij <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (x - y) > threshold }) * 1
-      # L_ij is 1 when (Y_Control - Y_Treat) > threshold; Lower Loss
-      L_ij <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (y - x) > threshold }) * 1
-      Omega_ij <- 1 - W_ij - L_ij
+      
+      W_raw <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (x - y) > threshold })
+      L_raw <- outer(Y_Treat, Y_Control, FUN = function(x, y) { (y - x) > threshold })
     } 
     else if (endpoint_type == "count"){
-      # Extract count values
       Y_Treat <- Group.Treat[[paste0("Count_", i)]]
       Y_Control <- Group.Control[[paste0("Count_", i)]]
-      # Assuming lower counts are better (e.g., fewer adverse events)
-      W_ij <- (outer(Y_Treat, Y_Control, "<")) * 1
-      L_ij <- (outer(Y_Treat, Y_Control, ">")) * 1
-      Omega_ij <- (outer(Y_Treat, Y_Control, "==")) * 1
+      
+      W_raw <- outer(Y_Treat, Y_Control, "<")
+      L_raw <- outer(Y_Treat, Y_Control, ">")
     } 
     else {
       stop(paste("Unsupported endpoint type:", endpoint_type))
     }
-    # Multiply by previous Omega_Kernal to account for hierarchy
-    W_ij <- Omega_Kernal * W_ij
-    L_ij <- Omega_Kernal * L_ij
-    Omega_ij <- Omega_Kernal * Omega_ij
     
-    # Store the matrices for endpoint i
-    Endpoint_Matrices[[i]] <- list( W_ij = W_ij, L_ij = L_ij, Omega_ij = Omega_ij )
+    W_ij <- Omega_Kernal * W_raw
+    L_ij <- Omega_Kernal * L_raw
     
-    # Update Omega_Kernal for next endpoint
-    Omega_Kernal <- Omega_ij
+    Win_Kernal <- Win_Kernal + W_ij
+    Loss_Kernal <- Loss_Kernal + L_ij
+    
+    tau_w_list[i] <- mean(W_ij)
+    tau_l_list[i] <- mean(L_ij)
+    
+    Omega_Kernal <- Omega_Kernal - W_ij - L_ij
   }
   
-  # Sum the W_ij and L_ij matrices across endpoints to get Win_Kernal and Loss_Kernal
-  Win_Kernal <- Reduce("+", lapply(Endpoint_Matrices, function(x) x$W_ij))
-  Loss_Kernal <- Reduce("+", lapply(Endpoint_Matrices, function(x) x$L_ij))
-  
-  # Calculate win and loss probabilities
-  tau_w <- mean(as.vector(Win_Kernal > 0))
-  tau_l <- mean(as.vector(Loss_Kernal > 0))
-  
-  # You can also extract individual tau_w and tau_l for each endpoint if needed
-  tau_w_list <- sapply(Endpoint_Matrices, function(x) mean(as.vector(x$W_ij)))
-  tau_l_list <- sapply(Endpoint_Matrices, function(x) mean(as.vector(x$L_ij)))
+  tau_w <- mean(Win_Kernal > 0)
+  tau_l <- mean(Loss_Kernal > 0)
   
   return(list(
     Win_Kernal = Win_Kernal,
@@ -108,6 +85,8 @@ Calc.Kernal.Matrix <- function(Group.Treat, Group.Control, endpoints){
     tau_l_list = tau_l_list
   ))
 }
+
+Calc.Kernal.Matrix.Fast <- Calc.Kernal.Matrix
 
 Calc.Xi <- function(Win_Kernal, Loss_Kernal){
   M <- nrow(Win_Kernal); N <- ncol(Win_Kernal)
@@ -340,7 +319,6 @@ Calc.AttPower <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param
   emp_powers <- colMeans(results_matrix, na.rm = TRUE)
   return(as.list(emp_powers))
 }
-
 
 
 

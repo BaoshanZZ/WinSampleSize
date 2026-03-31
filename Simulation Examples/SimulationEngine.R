@@ -667,7 +667,7 @@ aggregate_mc <- function(mc_results) {
 Calc.AttPower_V2 <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param,
                              endpoints.Ctrl, endpoints.Trt, Follow_up.Time = 200,
                              useParallel = FALSE, numCores = NULL,
-                             kernel_fun = Calc.Kernal.Matrix.Fast) {
+                             kernel_fun = Calc.Kernal.Matrix) {
   run_one_power_sim <- function(i) {
     set.seed(i)
     Pop.Ctrl <- Generating_Sample_V2(
@@ -767,7 +767,7 @@ Run_Adaptive_Estimation_V2 <- function(endpoints.HA, endpoints.H0, CORR,
                                        Follow_up.Time, M, N, numCores,
                                        batch_size, b_min, b_max,
                                        eps_tau, eps_xi,
-                                       kernel_fun = Calc.Kernal.Matrix.Fast,
+                                       kernel_fun = Calc.Kernal.Matrix,
                                        observed_corr_fun = NULL,
                                        seed_offset = 0,
                                        copula_type = "Gaussian",
@@ -992,7 +992,7 @@ Build_Convergence_File_V2 <- function(output_csv, scenario_name, stage_label) {
   return(file.path(plot_dir, file_name))
 }
 
-Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix.Fast) {
+Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
   endpoints.HA <- config$endpoints.HA
   endpoints.H0 <- config$endpoints.H0
   Follow_up.Time <- config$Follow_up.Time
