@@ -53,7 +53,7 @@ config <- list(
   copula_type = "Gaussian",
   association_name = "rho",
   output_csv = "Simulation Examples/Summary.Scenario3.csv",
-  observed_corr_fun = NULL
+  observed_corr_fun = CALC.Observed.Corr.Local
 )
 
 final_summary_table <- Run_Simulation(config = config)

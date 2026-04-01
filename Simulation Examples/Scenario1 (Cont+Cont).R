@@ -26,7 +26,7 @@ endpoints.H0 <- list(
 
 Follow_up.Time <- 200
 
-set.seed(123); N_sp <- 8000; numCores <- 16
+set.seed(123); N_sp <- 8000; numCores <- 20
 BATCH_SIZE <- 50; B_MIN <- 100; B_MAX <- 700
 history_every <- 5
 EPSILON_tau <- 1e-3; EPSILON_xi <- 1e-4
@@ -60,3 +60,4 @@ config <- list(
 )
 
 final_summary_table <- Run_Simulation(config = config)
+
