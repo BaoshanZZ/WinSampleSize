@@ -357,6 +357,30 @@ Get_GC_Memory_MB <- function() {
   return(sum(gc_out[, mb_col], na.rm = TRUE))
 }
 
+Get_Worker_GC_Memory_MB <- function(cl) {
+  if (is.null(cl)) {
+    return(list(max_mb = NA_real_, sum_mb = NA_real_))
+  }
+  
+  worker_vals <- tryCatch(
+    as.numeric(unlist(parallel::clusterCall(cl, function() {
+      gc_out <- gc(full = TRUE)
+      mb_col <- if (ncol(gc_out) >= 6) 6 else 2
+      sum(gc_out[, mb_col], na.rm = TRUE)
+    }))),
+    error = function(e) rep(NA_real_, length(cl))
+  )
+  
+  if (length(worker_vals) == 0 || all(!is.finite(worker_vals))) {
+    return(list(max_mb = NA_real_, sum_mb = NA_real_))
+  }
+  
+  return(list(
+    max_mb = max(worker_vals, na.rm = TRUE),
+    sum_mb = sum(worker_vals, na.rm = TRUE)
+  ))
+}
+
 Print_Named_Vector_V2 <- function(label, x, digits = 6, chunk_size = 4) {
   if (is.null(x)) {
     return(invisible(NULL))
@@ -386,7 +410,9 @@ Make_Safe_Label_V2 <- function(x) {
 }
 
 Build_Batch_History_Row_V2 <- function(b_total, max_se_tau, max_se_xi,
-                                       elapsed_sec, memory_mb,
+                                       elapsed_sec, master_memory_mb,
+                                       worker_memory_max_mb,
+                                       worker_memory_sum_mb,
                                        mean_tau, mean_xi_h0, mean_xi_ha,
                                        extra_metrics = NULL) {
   row <- c(
@@ -394,7 +420,9 @@ Build_Batch_History_Row_V2 <- function(b_total, max_se_tau, max_se_xi,
     Max_SE_Tau = max_se_tau,
     Max_SE_Xi = max_se_xi,
     Elapsed_Sec = elapsed_sec,
-    Memory_MB = memory_mb,
+    Master_Memory_MB = master_memory_mb,
+    Worker_Memory_Max_MB = worker_memory_max_mb,
+    Worker_Memory_Sum_MB = worker_memory_sum_mb,
     setNames(mean_tau, paste0("tau__", names(mean_tau))),
     setNames(mean_xi_h0, paste0("xi_h0__", names(mean_xi_h0))),
     setNames(mean_xi_ha, paste0("xi_ha__", names(mean_xi_ha)))
@@ -541,7 +569,9 @@ run_adaptive_mc <- function(sim_fun, cl,
   converged <- FALSE
   max_se_tau <- NA_real_
   max_se_xi <- NA_real_
-  peak_memory <- 0
+  peak_master_memory <- 0
+  peak_worker_memory_max <- 0
+  peak_worker_memory_sum <- 0
   start_time <- proc.time()[3]
   batch_history <- list()
   history_every <- max(1L, as.integer(history_every))
@@ -580,13 +610,17 @@ run_adaptive_mc <- function(sim_fun, cl,
             mean_xi_ha = history_mean_xi_ha
           )
         }
+        history_master_memory <- Get_GC_Memory_MB()
+        history_worker_memory <- Get_Worker_GC_Memory_MB(cl)
         
         batch_history[[length(batch_history) + 1L]] <- Build_Batch_History_Row_V2(
           b_total = current_b,
           max_se_tau = history_max_se_tau,
           max_se_xi = history_max_se_xi,
           elapsed_sec = proc.time()[3] - start_time,
-          memory_mb = Get_GC_Memory_MB(),
+          master_memory_mb = history_master_memory,
+          worker_memory_max_mb = history_worker_memory$max_mb,
+          worker_memory_sum_mb = history_worker_memory$sum_mb,
           mean_tau = history_mean_tau,
           mean_xi_h0 = history_mean_xi_h0,
           mean_xi_ha = history_mean_xi_ha,
@@ -597,8 +631,17 @@ run_adaptive_mc <- function(sim_fun, cl,
     
     b_total <- batch_end
     
-    cur_memory <- Get_GC_Memory_MB()
-    peak_memory <- max(peak_memory, cur_memory, na.rm = TRUE)
+    cur_master_memory <- Get_GC_Memory_MB()
+    cur_worker_memory <- Get_Worker_GC_Memory_MB(cl)
+    if (is.finite(cur_master_memory)) {
+      peak_master_memory <- max(peak_master_memory, cur_master_memory)
+    }
+    if (is.finite(cur_worker_memory$max_mb)) {
+      peak_worker_memory_max <- max(peak_worker_memory_max, cur_worker_memory$max_mb)
+    }
+    if (is.finite(cur_worker_memory$sum_mb)) {
+      peak_worker_memory_sum <- max(peak_worker_memory_sum, cur_worker_memory$sum_mb)
+    }
     elapsed_sec <- proc.time()[3] - start_time
     mean_tau <- Get_Running_Mean(tau_stats)
     mean_xi_h0 <- Get_Running_Mean(xi_h0_stats)
@@ -611,16 +654,18 @@ run_adaptive_mc <- function(sim_fun, cl,
       max_se_tau <- max(se_tau, na.rm = TRUE)
       max_se_xi <- max(se_xi, na.rm = TRUE)
       
-      cat(sprintf("  [Check] B=%d | max SE(tau)=%.2e | max SE(xi)=%.2e | time=%.1fs | memory=%.1f MB\n",
-                  b_total, max_se_tau, max_se_xi, elapsed_sec, cur_memory))
+      cat(sprintf("  [Check] B=%d | max SE(tau)=%.2e | max SE(xi)=%.2e | time=%.1fs | master=%.1f MB | worker_max=%.1f MB | worker_sum=%.1f MB\n",
+                  b_total, max_se_tau, max_se_xi, elapsed_sec,
+                  cur_master_memory, cur_worker_memory$max_mb, cur_worker_memory$sum_mb))
       
       if (is.finite(max_se_tau) && is.finite(max_se_xi) &&
           max_se_tau < eps_tau && max_se_xi < eps_xi) {
         converged <- TRUE
       }
     } else {
-      cat(sprintf("  [Check] B=%d | warming up | time=%.1fs | memory=%.1f MB\n",
-                  b_total, elapsed_sec, cur_memory))
+      cat(sprintf("  [Check] B=%d | warming up | time=%.1fs | master=%.1f MB | worker_max=%.1f MB | worker_sum=%.1f MB\n",
+                  b_total, elapsed_sec,
+                  cur_master_memory, cur_worker_memory$max_mb, cur_worker_memory$sum_mb))
     }
     
     Print_Named_Vector_V2("Mean tau", mean_tau, digits = 6, chunk_size = 4)
@@ -641,7 +686,9 @@ run_adaptive_mc <- function(sim_fun, cl,
     B_final = b_total,
     MC_Status = status,
     MC_Elapsed_Sec = proc.time()[3] - start_time,
-    MC_Memory_Max_MB = peak_memory,
+    MC_Master_Memory_Max_MB = peak_master_memory,
+    MC_Worker_Memory_Max_MB = peak_worker_memory_max,
+    MC_Worker_Memory_Sum_Max_MB = peak_worker_memory_sum,
     MC_Max_SE_Tau = max_se_tau,
     MC_Max_SE_Xi = max_se_xi,
     batch_history = do.call(rbind, batch_history)
@@ -657,7 +704,9 @@ aggregate_mc <- function(mc_results) {
     B_final = mc_results$B_final,
     MC_Status = mc_results$MC_Status,
     MC_Elapsed_Sec = mc_results$MC_Elapsed_Sec,
-    MC_Memory_Max_MB = mc_results$MC_Memory_Max_MB,
+    MC_Master_Memory_Max_MB = mc_results$MC_Master_Memory_Max_MB,
+    MC_Worker_Memory_Max_MB = mc_results$MC_Worker_Memory_Max_MB,
+    MC_Worker_Memory_Sum_Max_MB = mc_results$MC_Worker_Memory_Sum_Max_MB,
     MC_Max_SE_Tau = mc_results$MC_Max_SE_Tau,
     MC_Max_SE_Xi = mc_results$MC_Max_SE_Xi,
     batch_history = mc_results$batch_history
@@ -920,7 +969,9 @@ Build_Result_Row_V2 <- function(rho, agg, fixed_m_sample_wr,
   result_list$B_final <- agg$B_final
   result_list$MC_Status <- agg$MC_Status
   result_list$MC_Elapsed_Sec <- agg$MC_Elapsed_Sec
-  result_list$MC_Memory_Max_MB <- agg$MC_Memory_Max_MB
+  result_list$MC_Master_Memory_Max_MB <- agg$MC_Master_Memory_Max_MB
+  result_list$MC_Worker_Memory_Max_MB <- agg$MC_Worker_Memory_Max_MB
+  result_list$MC_Worker_Memory_Sum_Max_MB <- agg$MC_Worker_Memory_Sum_Max_MB
   result_list$MC_Max_SE_Tau <- agg$MC_Max_SE_Tau
   result_list$MC_Max_SE_Xi <- agg$MC_Max_SE_Xi
   result_list$Overall_Win_Prob <- tau_w_HA
@@ -996,8 +1047,12 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
   endpoints.HA <- config$endpoints.HA
   endpoints.H0 <- config$endpoints.H0
   Follow_up.Time <- config$Follow_up.Time
-  M <- config$M
-  N <- config$N
+  N_sp <- config$N_sp
+  if (is.null(N_sp)) {
+    stop("config$N_sp is required (use a single super-population size for both arms).")
+  }
+  M <- N_sp
+  N <- N_sp
   numCores <- config$numCores
   batch_size <- config$batch_size
   history_every <- if (!is.null(config$history_every)) config$history_every else batch_size
@@ -1029,7 +1084,7 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
   
   all_results <- list()
   
-  cat(sprintf("=== %s: V2 Adaptive Simulation ===\n", config$scenario_name))
+  cat(sprintf("=== %s: Adaptive Simulation ===\n", config$scenario_name))
   cat(sprintf("=== batch=%d, history_every=%d, B_min=%d, B_max=%d, eps_tau=%.1e, eps_xi=%.1e ===\n\n",
               batch_size, history_every, b_min, b_max, eps_tau, eps_xi))
   
@@ -1232,3 +1287,19 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
   
   return(final_summary_table)
 }
+
+Sample_Logseries <- Sample_Logseries_V2
+Sample_PosStable <- Sample_PosStable_V2
+Frank_Tau_To_Theta <- Frank_Tau_To_Theta_V2
+Sample_Copula <- Sample_Copula_V2
+CALC.Observed.Corr.Local <- CALC.Observed.Corr.V2
+Generating_Sample.Local <- Generating_Sample_V2
+Calc.AttPower.Local <- Calc.AttPower_V2
+Run_Adaptive_Estimation <- Run_Adaptive_Estimation_V2
+Calc_Theo_Power_Bundle <- Calc_Theo_Power_Bundle_V2
+Build_Result_Row <- Build_Result_Row_V2
+Print_Metric_Summary <- Print_Metric_Summary_V2
+Build_Required_SS_History_Fun <- Build_Required_SS_History_Fun_V2
+Build_Convergence_File <- Build_Convergence_File_V2
+Plot_Convergence <- Plot_Convergence_V2
+Run_Simulation <- Run_Simulation_V2
