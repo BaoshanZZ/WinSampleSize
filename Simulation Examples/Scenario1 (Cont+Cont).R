@@ -26,7 +26,7 @@ endpoints.H0 <- list(
 
 Follow_up.Time <- 200
 
-set.seed(123); M <- 8000; N <- 8000; numCores <- 20
+set.seed(123); N_sp <- 8000; numCores <- 16
 BATCH_SIZE <- 50; B_MIN <- 100; B_MAX <- 700
 history_every <- 5
 EPSILON_tau <- 1e-3; EPSILON_xi <- 1e-4
@@ -40,8 +40,7 @@ config <- list(
   endpoints.HA = endpoints.HA,
   endpoints.H0 = endpoints.H0,
   Follow_up.Time = Follow_up.Time,
-  M = M,
-  N = N,
+  N_sp = N_sp,
   numCores = numCores,
   batch_size = BATCH_SIZE,
   history_every = history_every,
@@ -57,7 +56,7 @@ config <- list(
   copula_type = "Gaussian",
   association_name = "rho",
   output_csv = "Simulation Examples/Summary.Scenario1.csv",
-  observed_corr_fun = CALC.Observed.Corr.V2
+  observed_corr_fun = CALC.Observed.Corr.Local
 )
 
-final_summary_table <- Run_Simulation_V2(config = config, kernel_fun = Calc.Kernal.Matrix)
+final_summary_table <- Run_Simulation(config = config)
