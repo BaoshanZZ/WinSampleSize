@@ -68,7 +68,6 @@ Important: the order of endpoints in the list defines the clinical hierarchy.
 - `Simulation Examples/Scenario3 (Surv+Cont).R`: survival + continuous example
 - `Simulation Examples/Scenario4 (Bin+Cont).R`: binary + continuous example
 - `RealStudy_HeartFID/`: maintained HEART-FID real-study workflow split into FORSS scripts and Barnhart reference code
-- `ShinyApp Examples/`: prototype scripts for interactive examples
 
 Some scripts in the repository are exploratory or legacy. The main maintained workflow is centered on `DynSampleGener.R`, `DynWinVarEstFUNC.R`, and `Simulation Examples/SimulationEngine.R`.
 
@@ -255,7 +254,6 @@ These quantities are all evaluated through asymptotic variance formulas built fr
 - For multi-endpoint HCEs, the dependence structure can materially affect both the win probabilities and the required sample size.
 - Continuous endpoints use threshold-based comparisons, so the design is sensitive to the clinically meaningful margin you specify.
 - The codebase is research-oriented and script-driven; it is best used as a reproducible framework rather than as a polished R package.
-- Prototype files in `ShinyApp Examples/` may lag behind the current core scripts.
 
 ## Citation And Context 📚
 

@@ -8,6 +8,7 @@
 .codex
 .codex/
 memory/
+ShinyApp Examples/
 *.rds
 *.RDS
 core.dcc-*
