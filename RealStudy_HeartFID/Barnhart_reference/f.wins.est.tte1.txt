@@ -1,0 +1,65 @@
+# a function where the first endpoint is time to event with event/censoring indicator
+f.wins.est.tte1 <- function(d,delta1=0,delta2=0,delta3=0,order1="GT",order2="GT", order3="GT")
+{
+delta1a <- d[d[,"arm"]=="a","Delta_1"]
+delta1b <- d[d[,"arm"]=="b","Delta_1"]
+y1a <- d[d[,"arm"]=="a","Y_1"]
+y1b <- d[d[,"arm"]=="b","Y_1"]
+y2a <- d[d[,"arm"]=="a","Y_2"]
+y2b <- d[d[,"arm"]=="b","Y_2"]
+y3a <- d[d[,"arm"]=="a","Y_3"]
+y3b <- d[d[,"arm"]=="b","Y_3"]
+Delta_1a <- rep(delta1a,rep(length(y1b),length(y1a)))
+Delta_1b <- rep(delta1b,length(y1a))
+Y1a <- rep(y1a,rep(length(y1b),length(y1a)))
+Y1b <- rep(y1b,length(y1a))
+Y2a <- rep(y2a,rep(length(y2b),length(y2a)))
+Y2b <- rep(y2b,length(y2a))
+Y3a <- rep(y3a,rep(length(y3b),length(y3a)))
+Y3b <- rep(y3b,length(y3a))
+
+  #### For TTE outcome: Denote the observed survival time as Y1a and Y1b, and event status
+  #### as Delta_1a and Delta_1b. There is a win for the treatment group if we have:
+  ####                      Delta_con = 1 and Y_trt > Y_con + tau,
+  #### where tau denote the magnitude of difference to determine win/loss/tie.
+
+W1 <- ifelse(Y1a > Y1b + delta1 & Delta_1b == 1, 1,0)
+W1 <- ifelse(Y1b > Y1a + delta1 & Delta_1a == 1, -1,W1)
+#W1 <- switch(order1, "GT"=ifelse(Y1a > Y1b + delta1,  1, 0), "LT"=ifelse(Y1a < Y1b + delta1, 1,0))
+#W1 <- switch(order1, "GT"=ifelse(Y1a < Y1b - delta1, -1, W1), "LT"=ifelse(Y1a > Y1b - delta1, -1,W1))
+W2 <- switch(order2, "GT"=ifelse(Y2a > Y2b + delta2,  1, 0), "LT"=ifelse(Y2a < Y2b + delta2, 1,0))
+W2 <- switch(order2, "GT"=ifelse(Y2a < Y2b - delta2, -1, W2), "LT"=ifelse(Y2a > Y2b - delta2, -1,W2))
+W3 <- switch(order3, "GT"=ifelse(Y3a > Y3b + delta3,  1, 0), "LT"=ifelse(Y3a < Y3b + delta3, 1,0))
+W3 <- switch(order3, "GT"=ifelse(Y3a < Y3b - delta3, -1, W3), "LT"=ifelse(Y3a > Y3b - delta3, -1,W3))
+
+W <- ifelse(W1==0,W2,W1)
+WW <- ifelse(W==0,W3,W)
+W <- WW
+WR <- sum(W==1)/sum(W== -1)
+WO <- (sum(W==1)+0.5*sum(W==0))/(sum(W== -1)+0.5*sum(W==0))
+TIE <- sum(W==0)/length(W)
+TIE1 <- sum(W1==0)/length(W)
+TIE2 <- sum(W2==0)/length(W)
+TIE3 <- sum(W3==0)/length(W)
+nwin1 <- sum(W1==1)
+nlose1 <- sum(W1== -1)
+ntie1 <- sum(W1==0)
+WW2 <- ifelse(W1!=0,0,W2)
+nwin22 <- sum(WW2 == 1)
+nlose22 <- sum(WW2 == -1)
+npair=length(W)
+WR1 <- sum(W1==1)/sum(W1== -1)
+WR2 <- sum(W2==1)/sum(W2== -1)
+WR3 <- sum(W3==1)/sum(W3== -1)
+
+NB <- (WO-1)/(WO+1)
+DOOR <- WO/(1+WO)
+CORa12 <- cor(y1a,y2a)
+CORb12 <- cor(y1b,y2b)
+CORa13 <- cor(y1a,y3a)
+CORb13 <- cor(y1b,y3b)
+CORa23 <- cor(y2a,y3a)
+CORb23 <- cor(y2b,y3b)
+
+return(c(nwin1=nwin1, nlose1=nlose1, nwin22=nwin22, nlos22=nlose22, WR=WR,WO=WO,TIE=TIE,TIE1=TIE1, TIE2=TIE2, TIE3=TIE3, WR1=WR1, WR2=WR2, WR3=WR3, NB=NB, DOOR=DOOR, CORa12=CORa12,CORb12=CORb12,CORa13=CORa13,CORb13=CORb13,CORa23=CORa23,CORb23=CORb23))
+}

@@ -1,10 +1,17 @@
 .Rproj.user
+.Rproj.user/
 .Rhistory
 .RData
+.RDataTmp
 .Ruserdata
 .DS_Store
+.codex
 .codex/
+memory/
+*.rds
+*.RDS
 core.dcc-*
 precalc_baseline.rds
 result_*.rds
 HeartFID_output/*.rds
+RealStudy_HeartFID/HeartFID_output/intermediate/

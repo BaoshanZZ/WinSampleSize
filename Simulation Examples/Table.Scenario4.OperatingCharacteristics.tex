@@ -1,0 +1,21 @@
+\begin{table}[ht!]
+\centering
+\caption{Operating Characteristics for Binary-Continuous HCEs at Fixed Sample Size ($m=n=239$)}
+\label{tab:scenario4_op_char}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}ccccccccccc@{}}
+\toprule
+\multicolumn{2}{c}{Correlation} & \multicolumn{3}{c}{Empirical Type I Error (\%)} & \multicolumn{3}{c}{Calculated Power (\%)} & \multicolumn{3}{c}{Empirical Power (\%)} \\
+\cmidrule(lr){1-2} \cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11}
+latent $\rho$ & obs. $\widehat{\kappa}$ & WR & NB \& DOOR & WO & WR & NB \& DOOR & WO & WR & NB \& DOOR & WO \\
+\midrule
+0.0 & 0.001 & 5.09 & 5.24 & 5.10 & 85.14 & 86.07 & 86.04 & 85.64 & 85.91 & 85.65 \\
+0.2 & 0.127 & 5.04 & 5.24 & 5.07 & 81.38 & 82.39 & 82.40 & 81.88 & 82.22 & 81.88 \\
+0.4 & 0.256 & 4.96 & 5.17 & 5.00 & 77.47 & 78.53 & 78.60 & 78.21 & 78.63 & 78.25 \\
+0.6 & 0.390 & 5.21 & 5.41 & 5.23 & 73.43 & 74.55 & 74.66 & 74.25 & 74.63 & 74.28 \\
+0.8 & 0.533 & 5.36 & 5.46 & 5.37 & 69.31 & 70.44 & 70.59 & 70.34 & 70.66 & 70.36 \\
+\bottomrule
+\addlinespace
+\multicolumn{11}{p{0.9\textwidth}}{\footnotesize \textit{Note:} WR: Win Ratio; NB: Net Benefit; DOOR: Desirability of Outcome Ranking; WO: Win Odds. These results are based on the standardized $N_{sp}=2000$ runs. Adaptive Monte Carlo estimation used $B_{\min}=100$, $B_{\max}=3000$, $\varepsilon_{\tau}=5\times 10^{-4}$, and $\varepsilon_{\xi}=10^{-4}$. Observed $\widehat{\kappa}$ is Kendall's tau. }
+\end{tabular}
+\end{table}

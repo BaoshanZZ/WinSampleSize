@@ -1,6 +1,5 @@
 rm(list = ls())
 library(dplyr)
-library(mvtnorm)
 library(Matrix)
 library(parallel)
 library(pbapply)
@@ -20,23 +19,23 @@ endpoints.HA <- list(
 
 endpoints.H0 <- list(
   # Y1: High tie rate under the null hypothesis as well.
-  list(type = "continuous", params = list(mu = 3, sigma = 12), threshold = 8),
+  list(type = "continuous", params = list(mu = 3, sigma = 10), threshold = 8),
   list(type = "continuous", params = list(mu = 30, sigma = 15), threshold = 6)
 )
 
 Follow_up.Time <- 200
 
-set.seed(123); N_sp <- 8000; numCores <- 20
-BATCH_SIZE <- 50; B_MIN <- 100; B_MAX <- 700
+set.seed(1234); N_sp <- 2000; numCores <- 20
+BATCH_SIZE <- 50; B_MIN <- 100; B_MAX <- 3000
 history_every <- 5
-EPSILON_tau <- 1e-3; EPSILON_xi <- 1e-4
+EPSILON_tau <- 5e-4; EPSILON_xi <- 1e-4
 RUNNING_emp_power <- 10000
 rho_values <- c(0.0, 0.2, 0.4, 0.6, 0.8)
 
 alpha <- 0.05; beta <- 0.15; Sample.rho <- 1
 
 config <- list(
-  scenario_name = "Scenario1 (Cont+Cont)",
+  scenario_name = "Scenario1 (Cont+Cont, Nsp2000)",
   endpoints.HA = endpoints.HA,
   endpoints.H0 = endpoints.H0,
   Follow_up.Time = Follow_up.Time,
@@ -53,11 +52,16 @@ config <- list(
   alpha = alpha,
   beta = beta,
   Sample.rho = Sample.rho,
+  seed_offset_estimation = 85696336,
+  seed_offset_empirical = 66690966,
+  seed_offset_type1 = 66690966,
   copula_type = "Gaussian",
   association_name = "rho",
-  output_csv = "Simulation Examples/Summary.Scenario1.csv",
+  output_csv = "Simulation Examples/Summary.Scenario1.Nsp2000.csv",
   observed_corr_fun = CALC.Observed.Corr.Local
 )
 
 final_summary_table <- Run_Simulation(config = config)
-
+final_summary_table$N_sp <- N_sp
+final_summary_table <- final_summary_table[, c("N_sp", setdiff(names(final_summary_table), "N_sp"))]
+write.csv(final_summary_table, config$output_csv, row.names = FALSE)

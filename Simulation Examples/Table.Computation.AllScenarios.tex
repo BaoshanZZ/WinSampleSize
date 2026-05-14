@@ -1,0 +1,36 @@
+\begin{table}[ht!]
+\centering
+\caption{Adaptive Monte Carlo Computational Diagnostics Across Four Two-Endpoint HCE Scenarios}
+\label{tab:all_scenarios_computation}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}cccccccc@{}}
+\toprule
+Scenario & latent $\rho$ & $B_{\text{final}}$ & Time (min) & Worker max (GB) & Worker sum (GB) & Max SE$(\tau)$ & Max SE$(\xi)$ \\
+\midrule
+S1 & 0.0 & 950 & 5.3 & 0.80 & 15.01 & 4.95e-04 & 7.26e-05 \\
+S1 & 0.2 & 900 & 4.9 & 0.80 & 14.99 & 4.98e-04 & 7.54e-05 \\
+S1 & 0.4 & 800 & 4.4 & 0.79 & 14.99 & 4.97e-04 & 8.24e-05 \\
+S1 & 0.6 & 600 & 3.3 & 0.80 & 14.84 & 4.98e-04 & 9.69e-05 \\
+S1 & 0.8 & 600 & 3.3 & 0.79 & 14.57 & 3.74e-04 & 9.96e-05 \\
+\addlinespace
+S2 & 0.0 & 1350 & 7.4 & 0.81 & 15.22 & 5.00e-04 & 7.99e-05 \\
+S2 & 0.2 & 1350 & 7.4 & 0.80 & 15.33 & 4.90e-04 & 8.04e-05 \\
+S2 & 0.4 & 1200 & 6.5 & 0.78 & 15.14 & 4.92e-04 & 8.75e-05 \\
+S2 & 0.6 & 1000 & 5.5 & 0.78 & 14.86 & 4.59e-04 & 9.98e-05 \\
+S2 & 0.8 & 1150 & 6.3 & 0.79 & 15.09 & 2.99e-04 & 9.81e-05 \\
+\addlinespace
+S3 & 0.0 & 3000 & 17.2 & 0.92 & 17.13 & 5.14e-04 & 5.04e-05 \\
+S3 & 0.2 & 3000 & 16.8 & 0.92 & 17.08 & 5.01e-04 & 5.00e-05 \\
+S3 & 0.4 & 2550 & 43.1 & 0.88 & 16.56 & 4.99e-04 & 5.45e-05 \\
+S3 & 0.6 & 1750 & 9.8 & 0.84 & 15.77 & 4.93e-04 & 6.57e-05 \\
+S3 & 0.8 & 850 & 4.8 & 0.80 & 14.99 & 4.99e-04 & 9.14e-05 \\
+\addlinespace
+S4 & 0.0 & 1350 & 7.4 & 0.81 & 15.77 & 4.99e-04 & 8.38e-05 \\
+S4 & 0.2 & 1300 & 7.0 & 0.81 & 15.72 & 4.92e-04 & 8.48e-05 \\
+S4 & 0.4 & 1100 & 5.9 & 0.78 & 15.58 & 5.00e-04 & 9.39e-05 \\
+S4 & 0.6 & 1050 & 5.7 & 0.78 & 15.50 & 4.37e-04 & 9.77e-05 \\
+S4 & 0.8 & 1100 & 6.0 & 0.79 & 15.64 & 3.10e-04 & 9.98e-05 \\
+\bottomrule
+\end{tabular}
+\parbox{0.92\textwidth}{\footnotesize \textit{Note:} S1: continuous + continuous; S2: continuous + binary; S3: survival + continuous; S4: binary + continuous. These summaries correspond to the standardized $N_{sp}=2000$ runs. The adaptive Monte Carlo settings were $B_{\min}=100$, $B_{\max}=3000$, $\varepsilon_{\tau}=5\times 10^{-4}$, and $\varepsilon_{\xi}=10^{-4}$. Worker max and worker sum report the maximum per-worker memory and the summed worker memory across the parallel cluster, respectively. S3 statuses: B_MAX_REACHED, CONVERGED}
+\end{table}

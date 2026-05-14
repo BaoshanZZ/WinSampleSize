@@ -67,7 +67,7 @@ Important: the order of endpoints in the list defines the clinical hierarchy.
 - `Simulation Examples/Scenario2 (Cont+Bin).R`: continuous + binary example
 - `Simulation Examples/Scenario3 (Surv+Cont).R`: survival + continuous example
 - `Simulation Examples/Scenario4 (Bin+Cont).R`: binary + continuous example
-- `Heart-FID Case1.R`: case study motivated by HEART-FID style settings
+- `RealStudy_HeartFID/`: maintained HEART-FID real-study workflow split into FORSS scripts and Barnhart reference code
 - `ShinyApp Examples/`: prototype scripts for interactive examples
 
 Some scripts in the repository are exploratory or legacy. The main maintained workflow is centered on `DynSampleGener.R`, `DynWinVarEstFUNC.R`, and `Simulation Examples/SimulationEngine.R`.
@@ -228,7 +228,8 @@ Rscript "Simulation Examples/Scenario1 (Cont+Cont).R"
 Rscript "Simulation Examples/Scenario2 (Cont+Bin).R"
 Rscript "Simulation Examples/Scenario3 (Surv+Cont).R"
 Rscript "Simulation Examples/Scenario4 (Bin+Cont).R"
-Rscript "Heart-FID Case1.R"
+Rscript "RealStudy_HeartFID/Run_HeartFID_Independent_vs_Calibrated.R"
+Rscript "RealStudy_HeartFID/Build_HeartFID_Independent_vs_Calibrated_Tables.R"
 ```
 
 The scenario scripts use the adaptive engine in `Simulation Examples/SimulationEngine.R` to:

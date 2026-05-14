@@ -1,0 +1,21 @@
+\begin{table}[ht!]
+\centering
+\caption{Operating Characteristics for Survival-Continuous HCEs at Fixed Sample Size ($m=n=239$)}
+\label{tab:scenario3_op_char}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}ccccccccccc@{}}
+\toprule
+\multicolumn{2}{c}{Correlation} & \multicolumn{3}{c}{Empirical Type I Error (\%)} & \multicolumn{3}{c}{Calculated Power (\%)} & \multicolumn{3}{c}{Empirical Power (\%)} \\
+\cmidrule(lr){1-2} \cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11}
+latent $\rho$ & obs. $\widehat{\kappa}$ & WR & NB \& DOOR & WO & WR & NB \& DOOR & WO & WR & NB \& DOOR & WO \\
+\midrule
+0.0 & 0.001 & 4.85 & 5.04 & 4.85 & 85.05 & 84.28 & 84.27 & 84.04 & 84.33 & 84.09 \\
+0.2 & 0.180 & 4.94 & 5.06 & 4.94 & 81.62 & 80.67 & 80.71 & 80.64 & 81.10 & 80.70 \\
+0.4 & 0.362 & 4.94 & 5.11 & 4.95 & 78.27 & 77.14 & 77.24 & 77.18 & 77.62 & 77.21 \\
+0.6 & 0.548 & 5.01 & 5.22 & 5.02 & 74.78 & 73.49 & 73.63 & 73.91 & 74.31 & 73.94 \\
+0.8 & 0.742 & 5.14 & 5.33 & 5.15 & 71.73 & 70.31 & 70.48 & 70.58 & 71.13 & 70.63 \\
+\bottomrule
+\addlinespace
+\multicolumn{11}{p{0.9\textwidth}}{\footnotesize \textit{Note:} WR: Win Ratio; NB: Net Benefit; DOOR: Desirability of Outcome Ranking; WO: Win Odds. These results are based on the standardized $N_{sp}=2000$ runs. Adaptive Monte Carlo estimation used $B_{\min}=100$, $B_{\max}=3000$, $\varepsilon_{\tau}=5\times 10^{-4}$, and $\varepsilon_{\xi}=10^{-4}$. For this survival scenario, observed $\widehat{\kappa}$ was estimated as $2\widehat{C}-1$ from Harrell's C-index.  Some runs reached \texttt{B\_MAX\_REACHED}; see the computational diagnostics table for details.}
+\end{tabular}
+\end{table}

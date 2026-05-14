@@ -1,0 +1,23 @@
+\begin{table}[ht!]
+\centering
+\caption{Win ratio operating characteristics across three correlation scenarios in the HEART-FID trial.}
+\label{tab:heartfid_power_main}
+\begin{threeparttable}
+\setlength{\tabcolsep}{4.2pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabular}{@{}l c c c c c c c@{}}
+\toprule
+\textbf{Scenario} & latent $\bm{\mathcal{R}}$\tnote{a} & observed $\widehat{\bm{\mathcal{A}}}$\tnote{b} & Total $N$ & Avg. sim. WR & Calc. power (WR, \%) & Emp. power (WR, \%) & Type I error (WR, \%) \\
+\midrule
+Independent & (0.00, 0.00, 0.00) & (0.00, 0.00, 0.00) & 2488 & 1.149 & 85.00 & 84.43 & 4.85 \\
+Direct input & (-0.22, 0.52, -0.10) & (-0.15, 0.55, -0.06) & 2488 & 1.132 & 76.20 & 76.59 & 5.28 \\
+Calibrated & (-0.30, 0.49, -0.17) & (-0.21, 0.53, -0.10) & 2488 & 1.130 & 74.87 & 75.13 & 5.09 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item[a] Latent Gaussian copula correlations: $(\rho_{12}, \rho_{13}, \rho_{23})$ for endpoint pairs $D_1$--$D_2$, $D_1$--$D_3$, and $D_2$--$D_3$.
+\item[b] Observed pairwise associations in the simulated treatment-arm super-populations used by the FORSS adaptive estimator: $(\hat{a}_{12}, \hat{a}_{13}, \hat{a}_{23})$. The first two entries are Harrell's C transformed as $2C-1$ for $D_1$ with $D_2$ and $D_3$; the third is Kendall's tau-b for $D_2$ and $D_3$.
+\item Note: The fixed design uses $m=n=1244$ per arm, determined under the independent scenario using WR. This compact table is intended for the main manuscript and focuses on WR to facilitate comparison with Barnhart et al. Table 3.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}

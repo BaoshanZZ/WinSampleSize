@@ -1,0 +1,18 @@
+\begin{table}[ht!]
+\centering
+\caption{Summary of Adaptive Monte Carlo Computational Diagnostics Across Four Two-Endpoint HCE Scenarios}
+\label{tab:all_scenarios_computation_summary}
+\setlength{\tabcolsep}{3pt}
+\small
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+Scenario & $B_{\text{final}}$ & Time (min) & Worker max (GB) & Max SE$(\tau)$ & Max SE$(\xi)$ \\
+\midrule
+S1 & 600--950 & 3.3--5.3 & 0.79--0.80 & $3.74e-04$--$4.98e-04$ & $7.26e-05$--$9.96e-05$ \\
+S2 & 1000--1350 & 5.5--7.4 & 0.78--0.81 & $2.99e-04$--$5.00e-04$ & $7.99e-05$--$9.98e-05$ \\
+S3 & 850--3000 & 4.8--43.1 & 0.80--0.92 & $4.93e-04$--$5.14e-04$ & $5.00e-05$--$9.14e-05$ \\
+S4 & 1050--1350 & 5.7--7.4 & 0.78--0.81 & $3.10e-04$--$5.00e-04$ & $8.38e-05$--$9.98e-05$ \\
+\bottomrule
+\end{tabular}
+\parbox{0.92\textwidth}{\footnotesize \textit{Note:} S1: continuous + continuous; S2: continuous + binary; S3: survival + continuous; S4: binary + continuous. Ranges are taken over latent correlations $\rho \in \{0, 0.2, 0.4, 0.6, 0.8\}$. These summaries correspond to the standardized $N_{sp}=2000$ runs. The stopping parameters were $B_{\min}=100$, $B_{\max}=3000$, $\varepsilon_{\tau}=5\times 10^{-4}$, and $\varepsilon_{\xi}=10^{-4}$. S3 statuses: B_MAX_REACHED, CONVERGED}
+\end{table}

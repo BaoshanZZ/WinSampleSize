@@ -1,0 +1,532 @@
+# simulation studies for general win ratio
+
+install.package("skellam")
+library("skellam")
+library(WINS)
+library(WWR)
+library(survival)
+library(MASS)
+
+#functions needed in computing wins statistics
+source("C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\f.wins.est.txt")
+
+# start simulation function
+# lam.b- rate in control for poisson dist. lam.a - rate in active for poisson dist over s period.
+sim.tt.count.cont <- function(seed, er1.a, er1.b, lam.b, lam.a, rho12, rho13, rho23, mu3.a, mu3.b, sd3, delta3, Mval, sample.size, s)
+{
+# convert death rate at 1 year to hazard rate based on exponential distribution
+# use simulation method in sim.data
+out <- NULL
+hr1.a <- -log(1-er1.a)/s
+hr1.b <- -log(1-er1.b)/s
+for (sim in 1:Mval) {
+data <- sim.data(randomseed=seed+sim, n_trt = sample.size/2, n_con = sample.size/2, n_ep = 3, arm.name = c("a","b"),
+ ep_type = c("continuos", "count", "contiuous"),  sim_method = "copula",
+
+ copula_trt=copula::normalCopula(param=c(rho12, rho13, rho23), dim=3, dispstr="un"), margins_trt=c("exp", "pois", "norm"),
+ paramMargins_trt=list(list(rate=hr1.a),list(lambda=lam.a), list(mu3.a, sd3)),
+
+ copula_con=copula::normalCopula(param=c(rho12, rho13, rho23), dim=3, dispstr="un"), margins_con=c("exp", "pois","norm"),
+ paramMargins_con=list(list(rate=hr1.b),list(lambda=lam.b), list(mu3.b, sd3))
+)
+data[data[,"Y_1"]>s,"Y_1"] <- s
+print(paste("simulation", sim))
+out.one <- f.wins.est(d=data, order1="GT", order2="LT", order3="GT", delta3=delta3)
+out = rbind(out, c(sim=sim,out.one))
+}
+#return(data)
+return(out)
+}
+
+
+# end of sim function
+
+# summarize results
+f.sum.tt.count.cont <- function(sresult, seed,er1.a, er1.b, lam.b, lam.a, rho12, rho13, rho23, mu3.a, mu3.b, sd3, delta3, Mval, sample.size, s, alpha=0.05)
+{
+out <- NULL
+smean <- round(apply(sresult,2,mean),3)
+        logWR.sd =  sd(log(sresult[,"WR"]))
+zlogWR=log(sresult[,"WR"])/logWR.sd
+pWR <- 2*(1-pnorm(abs(zlogWR)))
+power.WR <- mean(ifelse(pWR<=0.05,1,0))
+        logWO.sd =  sd(log(sresult[,"WO"]))
+zlogWO=log(sresult[,"WO"])/logWO.sd
+pWO <- 2*(1-pnorm(abs(zlogWO)))
+power.WO <- mean(ifelse(pWO<=0.05,1,0))
+NB <-(sresult[,"WO"]-1)/(sresult[,"WO"]+1)
+NB.av <- mean((sresult[,"WO"]-1)/(sresult[,"WO"]+1))
+NB.sd <- sd(NB)
+zNB=NB/NB.sd
+pNB = 2*(1-pnorm(abs(zNB)))
+power.NB = mean(ifelse(pNB<=0.05,1,0))
+DOOR=(NB+1)/2 # DOOR = Prob of wins +1/2 prob of ties
+DOOR.av <- mean(DOOR)
+DOOR.sd=sd(DOOR)
+zDOOR=(DOOR-0.5)/DOOR.sd
+pDOOR = 2*(1-pnorm(abs(zDOOR)))
+power.DOOR = mean(ifelse(pDOOR<=0.05,1,0))
+COR12.av = round((smean["CORa12"]+smean["CORb12"])/2,3)
+COR13.av = round((smean["CORa13"]+smean["CORb13"])/2,3)
+COR23.av = round((smean["CORa23"]+smean["CORb23"])/2,3)
+
+# calculate the win ratio and win odds with formulas
+hr1.a <- -log(1-er1.a)/s
+hr1.b <- -log(1-er1.b)/s
+p_win1  <- hr1.b/(hr1.a+hr1.b)*(1-exp(-(hr1.a+hr1.b)))
+p_lose1 <- hr1.a/(hr1.a+hr1.b)*(1-exp(-(hr1.a+hr1.b)))
+wr_1 <- p_win1/p_lose1
+p_tie1 <- 1- p_win1 -p_lose1
+p_win2 <- pskellam(0, lam.a, lam.b)-dskellam(0,lam.a, lam.b)
+p_lose2 <- 1-pskellam(0, lam.a, lam.b)
+wr_2 <- p_win2/p_lose2
+p_tie2 <- 1- p_win2 - p_lose2
+p_win3 <- pnorm((mu3.a-mu3.b-delta3)/(sqrt(2)*sd3))
+p_lose3 <- pnorm((mu3.b-mu3.a-delta3)/(sqrt(2)*sd3))
+wr_3 <- p_win3/p_lose3
+p_tie3 <- 1 - p_win3 - p_lose3
+p_tie <- p_tie1*p_tie2*p_tie3
+# term1=p(A loses on time to death)
+term1 <- p_lose1
+term2 <- p_tie1*p_lose2
+term3 <- p_tie1*p_tie2*p_lose3
+allterm <- term1+term2+term3
+w1 <- term1/allterm
+w2 <- term2/allterm
+w3 <- term3/allterm
+wr_c <- wr_1*w1 + wr_2*w2 + wr_3*w3
+
+term4 <- 0.5*p_tie
+wo.allterm <- term1+term2+term3+term4
+ep1 <- term1/wo.allterm
+ep2 <- term2/wo.allterm
+ep3 <- term3/wo.allterm
+ep4 <- term4/wo.allterm
+wo_c <- wr_1*ep1 + wr_2*ep2 + wr_3*ep3 + ep4
+nb_c = (wo_c-1)/(wo_c+1)
+door_c = wo_c/(1+wo_c)
+
+# calculated powers based on calculated WR and WO
+power_c.WR = 1-pnorm( qnorm(1-alpha/2) - log(wr_c)*sqrt(3*sample.size*(1-p_tie)/(16*(1+p_tie)) ))
+power_c.WO <- 1-pnorm(qnorm(1-alpha/2) - log(wo_c)*sqrt(3*sample.size/(16*(1+p_tie)*(1-p_tie))))
+       
+return(data.frame(sample.size=sample.size, Mval=dim(sresult)[1], rho12=as.numeric(rho12), rho13=as.numeric(rho13), rho23=as.numeric(rho23), 
+COR12.av=as.numeric(COR12.av), COR13.av=as.numeric(COR13.av),COR23.av=as.numeric(COR23.av),
+WR.av=as.numeric(smean["WR"]), wr_c=as.numeric(round(wr_c,3)), WO.av=as.numeric(smean["WO"]),
+wo_c=as.numeric(round(wo_c,3)), NB.av=round(NB.av,3),nb_c=round(nb_c,3), DOOR.av=round(DOOR.av,3),door_c=round(door_c,3),PTIE.av=as.numeric(smean["TIE"]), p_tie=as.numeric(round(p_tie,3)),
+power.WR=as.numeric(round(power.WR,3)), power_c.WR=as.numeric(round(power_c.WR,3)),power.WO=as.numeric(round(power.WO,3)),
+power_c.WO=as.numeric(round(power_c.WO,3)), power.NB=as.numeric(round(power.NB,3)), power.DOOR=as.numeric(round(power.DOOR,3))))
+}
+
+
+
+s1ttcountcont1 <- sim.tt.count.cont(seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0, rho13=0, rho23=0, Mval=200, s=1, sample.size=3086)
+s1ttcountcont2 <- sim.tt.count.cont(seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=200, s=1, sample.size=3086)
+
+
+s1tt.count.cont1 <- f.sum.tt.count.cont(s1ttcountcont1, seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0, rho13=0, rho23=0, Mval=200, s=1, sample.size=3086, alpha=0.05)
+s1tt.count.cont2 <- f.sum.tt.count.cont(s1ttcountcont2, seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=200, s=1, sample.size=3086, alpha=0.05)
+> s1tt.count.cont1
+  sample.size Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3086  200     0     0     0        0        0    0.001 1.132 1.133 1.132 1.133 0.061 0.062   0.531  0.531       0     0    0.835       0.85    0.835       0.85    0.835      0.835
+
+> s1tt.count.cont2 
+  sample.size Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3086  200  0.25  0.15 -0.07    0.074    0.081   -0.048 1.133 1.133 1.133 1.133 0.062 0.062   0.531  0.531       0     0     0.87       0.85     0.87       0.85    0.885      0.885
+
+s1ttcountcont1 <- sim.tt.count.cont(seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=3086)
+s1ttcountcont2 <- sim.tt.count.cont(seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=20000, s=1, sample.size=3086)
+
+
+s1tt.count.cont1 <- f.sum.tt.count.cont(s1ttcountcont1, seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=3086, alpha=0.05)
+s1tt.count.cont2 <- f.sum.tt.count.cont(s1ttcountcont2, seed=123,er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=20000, s=1, sample.size=3086, alpha=0.05)
+> s1tt.count.cont1
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3086 20000     0     0     0        0        0        0 1.133 1.133 1.133 1.133 0.062 0.062   0.531  0.531       0     0    0.846       0.85    0.846       0.85    0.848      0.848
+> s1tt.count.cont2
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3086 20000  0.25  0.16 -0.07    0.075    0.087   -0.049 1.131 1.133 1.131 1.133 0.061 0.062   0.531  0.531       0     0    0.838       0.85    0.838       0.85     0.84       0.84
+> 
+
+## let's do the simulation with observed data and the acutal sample size##
+sottcountcont1 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=200, s=1, sample.size=3064)
+sottcountcont2 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=200, s=1, sample.size=3064)
+sott.count.cont1 <- f.sum.tt.count.cont(sottcountcont1, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=200, s=1, sample.size=3064, alpha=0.05)
+sott.count.cont2 <- f.sum.tt.count.cont(sottcountcont2, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=-0.13, rho13=0.5, rho23=-0.11, Mval=200, s=1, sample.size=3064, alpha=0.05)
+> sott.count.cont1
+  sample.size Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3064  200     0     0     0        0   -0.001        0 1.149 1.149 1.149 1.149 0.069 0.069   0.534  0.535       0     0    0.915      0.914    0.915      0.914    0.915      0.915
+> sott.count.cont2
+  sample.size Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3064  200 -0.13   0.5 -0.11    0.085    0.087   -0.053  1.15 1.149  1.15 1.149 0.069 0.069   0.535  0.535       0     0     0.92      0.914     0.92      0.914     0.92       0.92
+> sottcountcont2[1:10,]
+
+# increase number of simulations to 20,000
+sottcountcont1 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=3064)
+sottcountcont2 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=20000, s=1, sample.size=3064)
+sott.count.cont1 <- f.sum.tt.count.cont(sottcountcont1, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=3064, alpha=0.05)
+sott.count.cont2 <- f.sum.tt.count.cont(sottcountcont2, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=-0.13, rho13=0.5, rho23=-0.11, Mval=20000, s=1, sample.size=3064, alpha=0.05)
+
+> sott.count.cont1
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3064 20000     0     0     0        0        0        0  1.15 1.149  1.15 1.149 0.069 0.069   0.535  0.535       0     0    0.918      0.914    0.918      0.914     0.92       0.92
+> sott.count.cont2
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3064 20000 -0.13   0.5 -0.11    0.085    0.088   -0.053 1.151 1.149 1.151 1.149  0.07 0.069   0.535  0.535       0     0    0.919      0.914    0.919      0.914     0.92       0.92
+> 
+## let's do the simulation with observed data and different sample sizes for 90%, 85% and 80% power
+# 85% power
+> sott.count.cont3
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        2488 20000     0     0     0        0        0        0 1.151 1.149 1.151 1.149 0.069 0.069   0.535  0.535       0     0    0.856       0.85    0.856       0.85    0.858      0.858
+> 
+> sott.count.cont4
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        2488 20000 -0.13   0.5 -0.11    0.085    0.088   -0.053 1.151 1.149 1.151 1.149  0.07 0.069   0.535  0.535       0     0    0.857       0.85    0.857       0.85    0.859      0.859
+> 
+
+
+sottcountcont3 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=2488)
+sottcountcont4 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=20000, s=1, sample.size=2488)
+sott.count.cont3 <- f.sum.tt.count.cont(sottcountcont3, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=2488, alpha=0.05)
+sott.count.cont4 <- f.sum.tt.count.cont(sottcountcont4, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=-0.13, rho13=0.5, rho23=-0.11, Mval=200, s=1, sample.size=2488, alpha=0.05)
+# 80% power
+sottcountcont5 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=2176)
+sottcountcont6 <- sim.tt.count.cont(seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0.25, rho13=0.16, rho23=-0.07, Mval=20000, s=1, sample.size=2176)
+sott.count.cont5 <- f.sum.tt.count.cont(sottcountcont5, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=0, rho13=0, rho23=0, Mval=20000, s=1, sample.size=2176, alpha=0.05)
+sott.count.cont6 <- f.sum.tt.count.cont(sottcountcont6, seed=123,er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, delta3=0, rho12=-0.13, rho13=0.5, rho23=-0.11, Mval=20000, s=1, sample.size=2176, alpha=0.05)
+> sott.count.cont5
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        2176 20000     0     0     0        0        0        0  1.15 1.149  1.15 1.149 0.069 0.069   0.535  0.535       0     0    0.806        0.8    0.806        0.8    0.809      0.809
+> sott.count.cont6
+  sample.size  Mval rho12 rho13 rho23 COR12.av COR13.av COR23.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        2176 20000 -0.13   0.5 -0.11    0.085    0.088   -0.053 1.151 1.149 1.151 1.149 0.069 0.069   0.535  0.535       0     0    0.805        0.8    0.805        0.8    0.807      0.807
+> 
+
+# try simulation for the first two endpoints only using sim.tt.count and f.sum.tt.count
+
+heartfid2 <- sim.tt.count(seed=123,hr.b=-log(1-0.103), lam.b= 0.3321187, wr_1=log(1-0.103)/log(1-0.086), lam.a=0.2574614, rho=0.0, Mval=20000, sample.size=3064, s=1)
+heart.fid2 <- f.sum.tt.count(sresult=heartfid2, seed=123,hr.b=-log(1-0.103), lam.b= 0.3321187, wr_1=log(1-0.103)/log(1-0.086), lam.a=0.2574614, rho=0.0, Mval=20000, sample.size=3064, s=1, alpha=0.05)
+> heart.fid2
+  sample.size  Mval rho CORa.av CORb.av COR.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WRL power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3064 20000   0       0       0      0 1.295 1.292 1.138 1.138 0.064 0.064   0.532  0.532   0.494 0.494    0.962       0.912      0.946    0.963       0.87    0.964      0.964
+>
+
+heart1fid2 <- sim.tt.count(seed=123,hr.b=-log(1-0.103), lam.b= 0.3321187, wr_1=log(1-0.103)/log(1-0.086), lam.a=0.2574614, rho=-0.13, Mval=20000, sample.size=3064, s=1)
+heart1.fid2 <- f.sum.tt.count(sresult=heart1fid2, seed=123,hr.b=-log(1-0.103), lam.b= 0.3321187, wr_1=log(1-0.103)/log(1-0.086), lam.a=0.2574614, rho=-0.13, Mval=20000, sample.size=3064, s=1, alpha=0.05)
+  sample.size  Mval   rho CORa.av CORb.av COR.av WR.av  wr_c WO.av  wo_c NB.av  nb_c DOOR.av door_c PTIE.av p_tie power.WR power_c.WRL power_c.WR power.WO power_c.WO power.NB power.DOOR
+1        3064 20000 -0.13  -0.057  -0.062  -0.06 1.291 1.292 1.134 1.138 0.062 0.064   0.531  0.532   0.502 0.494    0.955       0.912      0.946    0.955       0.87    0.956      0.956
+>
+# power for win ratio 
+wr.power.tt.count.cont <- function(er1.a=0.08, er1.b=0.10, lam.a=0.19, lam.b=0.22, mu3.a=8, mu3.b=4, sd3=60, delta3=0, Mval=20000, sample.size=3064, s=1, power=0.85, alpha=0.05)
+{
+out <- NULL
+#compute hazard rates;
+hr1.a <- -log(1-er1.a)/s
+hr1.b <- -log(1-er1.b)/s
+p_win1  <- hr1.b/(hr1.a+hr1.b)*(1-exp(-(hr1.a+hr1.b)))
+p_lose1 <- hr1.a/(hr1.a+hr1.b)*(1-exp(-(hr1.a+hr1.b)))
+wr_1 <- p_win1/p_lose1
+#print(c(p_win1, p_lose1, wr_1))
+p_tie1 <- 1- p_win1 -p_lose1
+p_win2 <- pskellam(0, lam.a, lam.b)-dskellam(0,lam.a, lam.b)
+p_lose2 <- 1-pskellam(0, lam.a, lam.b)
+wr_2 <- p_win2/p_lose2
+p_tie2 <- 1- p_win2 - p_lose2
+p_win3 <- pnorm((mu3.a-mu3.b-delta3)/(sqrt(2)*sd3))
+p_lose3 <- pnorm((mu3.b-mu3.a-delta3)/(sqrt(2)*sd3))
+wr_3 <- p_win3/p_lose3
+p_tie3 <- 1 - p_win3 - p_lose3
+p_tie <- p_tie1*p_tie2*p_tie3
+# term1=p(A loses on time to death)
+term1 <- p_lose1
+term2 <- p_tie1*p_lose2
+term3 <- p_tie1*p_tie2*p_lose3
+allterm <- term1+term2+term3
+w1 <- term1/allterm
+w2 <- term2/allterm
+w3 <- term3/allterm
+wr_c <- wr_1*w1 + wr_2*w2 + wr_3*w3
+
+term4 <- 0.5*p_tie
+wo.allterm <- term1+term2+term3+term4
+ep1 <- term1/wo.allterm
+ep2 <- term2/wo.allterm
+ep3 <- term3/wo.allterm
+ep4 <- term4/wo.allterm
+wo_c <- wr_1*ep1 + wr_2*ep2 + wr_3*ep3 + ep4
+nb_c = (wo_c-1)/(wo_c+1)
+door_c = wo_c/(1+wo_c)
+
+p_tie12 <- p_tie1*p_tie2
+w1m <- term1/(term1+term2)
+w2m <- term2/(term1+term2)
+wr_c12 <- wr_1*term1/(term1+term2) + wr_2*term2/(term1+term2)
+# calculated powers based on calculated WR and WO
+power_c.WR <- 1-pnorm( qnorm(1-alpha/2) - log(wr_c)*sqrt(3*sample.size*(1-p_tie)/(16*(1+p_tie)) ))
+power_c.WO <- 1-pnorm(qnorm(1-alpha/2) - log(wo_c)*sqrt(3*sample.size/(16*(1+p_tie)*(1-p_tie))))
+power_c.WR12 <- 1-pnorm( qnorm(1-alpha/2) - log(wr_c12)*sqrt(3*sample.size*(1-p_tie12)/(16*(1+p_tie12)) ))
+n.yu1<- 16*(1+p_tie1)*(qnorm(1-alpha/2)+qnorm(power))^2/(3*(1-p_tie1)*(log(wr_1))^2)
+n.yu2<- 16*(1+p_tie12)*(qnorm(1-alpha/2)+qnorm(power))^2/(3*(1-p_tie12)*(log(wr_c12))^2)
+n.yu3<- 16*(1+p_tie)*(qnorm(1-alpha/2)+qnorm(power))^2/(3*(1-p_tie)*(log(wr_c))^2)
+#print(c(power_c.WR, power_c.WO))
+out <- c(n.yu1=n.yu1, n.yu2=n.yu2, n.yu3=n.yu3, wr_1=wr_1, w1=w1, wr_2=wr_2, w2=w2, wr_3=wr_3, w3=w3, wr_c=wr_c, nb_c=nb_c, door_c=door_c,w1m=w1m, w2m=w2m,wr_c12=wr_c12,  p_tie1=p_tie1, p_tie2=p_tie2, p_tie12=p_tie12, p_tie=p_tie, power_c.WR12=power_c.WR12,power_c.WR=power_c.WR)
+return(out)
+}
+
+
+round(wr.power.tt.count.cont(er1.a=0.08, er1.b=0.10, power=0.85),3)
+
+> round(wr.power.tt.count.cont(er1.a=0.08, er1.b=0.10, power=0.85),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     wr_c12     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+  9297.397   4835.636   3086.546      1.264      0.162      1.176      0.250      1.078      0.588      1.133      1.210      0.828      0.692      0.573      0.000      0.847 
+
+> 
+# used adjusted number of HF and observed values with first imputation
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.914, s=1, sample.size=3064),3)
+       n.yu1        n.yu2        n.yu3         wr_1           w1         wr_2           w2         wr_3           w3         wr_c          w1m          w2m       wr_c12       p_tie1       p_tie2      p_tie12        p_tie 
+   16575.482     2656.510     3065.614        1.209        0.175        1.341        0.299        1.020        0.526        1.149        0.370        0.630        1.292        0.820        0.603        0.494        0.000 
+power_c.WR12   power_c.WR 
+       0.946        0.914 
+round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.914, s=1, sample.size=3064),3)
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.914, s=1, sample.size=3064),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     wr_c12     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+ 16575.482   2656.510   3065.614      1.209      0.175      1.341      0.299      1.020      0.526      1.149      1.292      0.820      0.603      0.494      0.000      0.914 
+
+round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.90, s=1, sample.size=2912),3)
+
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.90, s=1, sample.size=2912),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     wr_c12     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+  8652.479   1688.742   2912.255      1.209      0.175      1.341      0.299      1.020      0.526      1.149      1.292      0.820      0.603      0.494      0.000      0.900 
+> 
+round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.85, s=1, sample.size=2488),3)
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.85, s=1, sample.size=2488),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     wr_c12     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+  7393.382   1442.999   2488.468      1.209      0.175      1.341      0.299      1.020      0.526      1.149      1.292      0.820      0.603      0.494      0.000      0.850 
+> 
+round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.80, s=1, sample.size=2176),3)
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.80, s=1, sample.size=2176),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     wr_c12     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+  6463.266   1261.464   2175.409      1.209      0.175      1.341      0.299      1.020      0.526      1.149      1.292      0.820      0.603      0.494      0.000      0.800 
+> 
+
+>
+# use round numbers
+round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.26, lam.b=0.33, mu3.a=-22 , mu3.b=-24, sd3=104, power=0.9, s=1, sample.size=3064),3)
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.26, lam.b=0.33, mu3.a=-22 , mu3.b=-24, sd3=104, power=0.9, s=1, sample.size=3064),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     wr_c12     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+ 15746.284   2775.650   3128.763      1.209      0.175      1.316      0.301      1.022      0.524      1.143      1.277      0.820      0.603      0.494      0.000      0.894 
+>>>>
+# get heart-fid data
+d.hf.6m <- read.csv(file="C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\d_hf_6m.csv",  header=T)
+
+# need to impute the missing 6m walk change
+d.impute <- function(seed, data, Mval)
+{
+out <- NULL
+for (imp in 1:Mval) {
+seed <- seed+imp
+set.seed(seed)
+data[is.na(data[,"Y_3"]) & data[,"arm"]=="a", "Y_3"] <- rnorm(n=dim(data[is.na(data[,"Y_3"]) & data[,"arm"]=="a",])[1], 8,60)
+data[is.na(data[,"Y_3"]) & data[,"arm"]=="b", "Y_3"] <- rnorm(n=dim(data[is.na(data[,"Y_3"]) & data[,"arm"]=="b",])[1], 4,60)
+out.one <- f.wins.est(d=data, order1="LT", order2="LT", order3="GT", delta3=0)
+out = rbind(out, c(imp=imp,out.one))
+}
+return(out)
+}
+
+heart.fid.wr1 <- d.impute(seed=123+1, data=d.hf.6m, Mval=1)
+heart.fid.wr2 <- d.impute(seed=123+2, data=d.hf.6m, Mval=1)
+heart.fid.wr3 <- d.impute(seed=123+3, data=d.hf.6m, Mval=1)
+heart.fid.wr4 <- d.impute(seed=123+4, data=d.hf.6m, Mval=1)
+heart.fid.wr5 <- d.impute(seed=123+5, data=d.hf.6m, Mval=1)
+heart.fid.wr6 <- d.impute(seed=123+6, data=d.hf.6m, Mval=1)
+heart.fid.wr7 <- d.impute(seed=123+7, data=d.hf.6m, Mval=1)
+heart.fid.wr8 <- d.impute(seed=123+8, data=d.hf.6m, Mval=1)
+heart.fid.wr9 <- d.impute(seed=123+9, data=d.hf.6m, Mval=1)
+heart.fid.wr10 <- d.impute(seed=123+10, data=d.hf.6m, Mval=1)
+
+heart.fid.wr <- rbind(heart.fid.wr1, heart.fid.wr2, heart.fid.wr3, heart.fid.wr4, heart.fid.wr5, heart.fid.wr6, heart.fid.wr7, heart.fid.wr8, heart.fid.wr9, heart.fid.wr10) 
+
+heart.fid.wr
+      imp       WR       WO         TIE      TIE1      TIE2        TIE3      WR1     WR2      WR3         NB      DOOR    CORa12    CORb12      CORa13      CORb13      CORa23      CORb23
+ [1,]   1 1.133505 1.133032 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.162727 0.06236768 0.5311838 0.1114923 0.1759044 -0.01394548 -0.05311309 -0.03328290 -0.06818507
+ [2,]   1 1.145015 1.144498 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.131061 0.06738098 0.5336905 0.1114923 0.1759044 -0.02462417 -0.02763109 -0.04708121 -0.03300029
+ [3,]   1 1.136009 1.135527 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.127207 0.06346283 0.5317314 0.1114923 0.1759044 -0.07002617 -0.08016249 -0.04607570 -0.02716458
+ [4,]   1 1.136194 1.135711 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.167072 0.06354373 0.5317719 0.1114923 0.1759044 -0.05020244 -0.07612981 -0.05519557 -0.07745597
+ [5,]   1 1.138827 1.138334 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.147851 0.06469252 0.5323463 0.1114923 0.1759044 -0.05853781 -0.06082601 -0.06499402 -0.04689408
+ [6,]   1 1.136149 1.135666 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.143297 0.06352414 0.5317621 0.1114923 0.1759044 -0.04434008 -0.07031342 -0.03664570 -0.03366264
+ [7,]   1 1.118413 1.117997 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.096304 0.05571168 0.5278558 0.1114923 0.1759044 -0.07161095 -0.04041103 -0.02668306 -0.04067178
+ [8,]   1 1.133731 1.133257 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.125591 0.06246647 0.5312332 0.1114923 0.1759044 -0.05730553 -0.06455170 -0.04660830 -0.04241159
+ [9,]   1 1.145811 1.145292 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.131336 0.06772587 0.5338629 0.1114923 0.1759044 -0.06819428 -0.04780378 -0.05948070 -0.04025815
+[10,]   1 1.131345 1.130880 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.118417 0.06142072 0.5307104 0.1114923 0.1759044 -0.06181579 -0.05880447 -0.07112792 -0.04763980
+>
+round(apply(heart.fid.wr, 2, mean),3)
+   imp     WR     WO    TIE   TIE1   TIE2   TIE3    WR1    WR2    WR3     NB   DOOR CORa12 CORb12 CORa13 CORb13 CORa23 CORb23 
+ 1.000  1.135  1.135  0.003  0.829  0.749  0.004  1.229  1.127  1.135  0.063  0.532  0.111  0.176 -0.052 -0.058 -0.049 -0.046 
+>>
+# get heart-fid data with time to death information
+td.hf.6m <- read.csv(file="C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\td_hf_6m.csv",  header=T)
+
+# need to impute the missing 6m walk change
+td.impute <- function(seed, data, Mval)
+{
+out <- NULL
+for (imp in 1:Mval) {
+seed <- seed+imp
+set.seed(seed)
+data[is.na(data[,"Y_3"]) & data[,"arm"]=="a", "Y_3"] <- rnorm(n=dim(data[is.na(data[,"Y_3"]) & data[,"arm"]=="a",])[1], 8,60)
+data[is.na(data[,"Y_3"]) & data[,"arm"]=="b", "Y_3"] <- rnorm(n=dim(data[is.na(data[,"Y_3"]) & data[,"arm"]=="b",])[1], 4,60)
+out.one <- f.wins.est(d=data, order1="GT", order2="LT", order3="GT", delta3=0)
+out = rbind(out, c(imp=imp,out.one))
+}
+return(out)
+}
+
+theart.fid.wr1 <- td.impute(seed=123+1, data=td.hf.6m, Mval=1)
+theart.fid.wr2 <- td.impute(seed=123+2, data=td.hf.6m, Mval=1)
+theart.fid.wr3 <- td.impute(seed=123+3, data=td.hf.6m, Mval=1)
+theart.fid.wr4 <- td.impute(seed=123+4, data=td.hf.6m, Mval=1)
+theart.fid.wr5 <- td.impute(seed=123+5, data=td.hf.6m, Mval=1)
+theart.fid.wr6 <- td.impute(seed=123+6, data=td.hf.6m, Mval=1)
+theart.fid.wr7 <- td.impute(seed=123+7, data=td.hf.6m, Mval=1)
+theart.fid.wr8 <- td.impute(seed=123+8, data=td.hf.6m, Mval=1)
+theart.fid.wr9 <- td.impute(seed=123+9, data=td.hf.6m, Mval=1)
+theart.fid.wr10 <-td.impute(seed=123+10, data=td.hf.6m, Mval=1)
+
+theart.fid.wr <- rbind(theart.fid.wr1, theart.fid.wr2, theart.fid.wr3, theart.fid.wr4, theart.fid.wr5, theart.fid.wr6, theart.fid.wr7, theart.fid.wr8, theart.fid.wr9, theart.fid.wr10) 
+
+theart.fid.wr
+
+round(apply(theart.fid.wr, 2, mean),3)
+      imp       WR       WO        TIE     TIE1      TIE2        TIE3      WR1     WR2      WR3         NB      DOOR      CORa12      CORb12       CORa13       CORb13      CORa23      CORb23
+ [1,]   1 1.128298 1.127845 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.162727 0.06008202 0.5300410 -0.02443227 -0.09953432 -0.005591693  0.021625215 -0.03328290 -0.06818507
+ [2,]   1 1.140401 1.139903 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.131061 0.06537805 0.5326890 -0.02443227 -0.09953432 -0.003256094  0.006695752 -0.04708121 -0.03300029
+ [3,]   1 1.130735 1.130273 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.127207 0.06115332 0.5305767 -0.02443227 -0.09953432  0.057351953  0.079424592 -0.04607570 -0.02716458
+ [4,]   1 1.130504 1.130043 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.167072 0.06105198 0.5305260 -0.02443227 -0.09953432  0.021476080  0.041227469 -0.05519557 -0.07745597
+ [5,]   1 1.133551 1.133079 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.147851 0.06238812 0.5311941 -0.02443227 -0.09953432  0.043328434  0.030415575 -0.06499402 -0.04689408
+ [6,]   1 1.130912 1.130449 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.143297 0.06123082 0.5306154 -0.02443227 -0.09953432  0.026226155  0.018170471 -0.03664570 -0.03366264
+ [7,]   1 1.114402 1.114001 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.096304 0.05392675 0.5269634 -0.02443227 -0.09953432  0.055122349 -0.005272372 -0.02668306 -0.04067178
+ [8,]   1 1.128964 1.128509 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.125591 0.06037497 0.5301875 -0.02443227 -0.09953432  0.040615023  0.047973671 -0.04660830 -0.04241159
+ [9,]   1 1.141335 1.140833 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.131336 0.06578425 0.5328921 -0.02443227 -0.09953432  0.048436228  0.012852647 -0.05948070 -0.04025815
+[10,]   1 1.126751 1.126304 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.118417 0.05940076 0.5297004 -0.02443227 -0.09953432  0.044368294  0.024848960 -0.07112792 -0.04763980
+> round(apply(theart.fid.wr, 2, mean),3)
+   imp     WR     WO    TIE   TIE1   TIE2   TIE3    WR1    WR2    WR3     NB   DOOR CORa12 CORb12 CORa13 CORb13 CORa23 CORb23 
+ 1.000  1.131  1.130  0.003  0.820  0.749  0.004  1.203  1.127  1.135  0.061  0.531 -0.024 -0.100  0.033  0.028 -0.049 -0.046 
+>
+
+
+> heart.fid.wr1
+     imp  nwin1  nlose       WR       WO         TIE      TIE1      TIE2        TIE3      WR1     WR2      WR3         NB      DOOR    CORa12    CORb12      CORa13      CORb13     CORa23      CORb23
+[1,]   1 221358 180125 1.133505 1.133032 0.003319487 0.8290511 0.7493468 0.004220891 1.228913 1.12697 1.162727 0.06236768 0.5311838 0.1114923 0.1759044 -0.01394548 -0.05311309 -0.0332829 -0.06818507
+> theart.fid.wr1
+     imp  nwin1  nlose       WR       WO        TIE     TIE1      TIE2        TIE3      WR1     WR2      WR3         NB     DOOR      CORa12      CORb12       CORa13     CORb13     CORa23      CORb23
+[1,]   1 230506 191607 1.128298 1.127845 0.00331608 0.820267 0.7493468 0.004220891 1.203015 1.12697 1.162727 0.06008202 0.530041 -0.02443227 -0.09953432 -0.005591693 0.02162521 -0.0332829 -0.06818507
+> 230506-230506
+[1] 0
+> 230506- 221358
+[1] 9148
+> 191607-180125
+[1] 11482
+>
+
+# get heart-fid data without adjustment
+d.hf.6m <- read.csv(file="C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\d_hf_6m.csv",  header=T)
+
+# get heart-fid data with number of HFs adjusted to follow-up, especially for those died and use the first imputed data
+# get heart-fid data
+d.hfa.6m <- read.csv(file="C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\d_hfa_6m.csv",  header=T)
+
+hfa.wr <- f.wins.est(d=d.hfa.6m, order1="LT", order2="LT", order3="GT", delta3=0)
+round(hfa.wr,3)
+
+> round(hfa.wr,3)
+         WR          WO         TIE        TIE1        TIE2        TIE3         WR1         WR2         WR3       nwin1      nlose1       ntie1       nwin2      nlose2       npair          NB        DOOR      CORa12      CORb12 
+      1.109       1.109       0.003       0.829       0.745       0.004       1.229       1.137       1.096  221358.000  180125.000 1947073.000  218044.000  215089.000 2348556.000       0.052       0.526       0.203       0.279 
+     CORa13      CORb13      CORa23      CORb23 
+     -0.315      -0.293      -0.106      -0.120 
+
+# get heart-fid data with time to death information and 6m walk 1st imputation
+td.hfa.6m <- read.csv(file="C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\td_hfa_6m.csv",  header=T)
+* please note that censoring on death was not taken into account. If it's censored, it assumes to be alive at 365 days
+thfa.wr <- f.wins.est(d=td.hfa.6m, order1="GT", order2="LT", order3="GT", delta3=0)
+round(thfa.wr,3)
+
+> round(thfa.wr,3)
+     nwin1     nlose1     nwin22     nlos22         WR         WO        TIE       TIE1       TIE2       TIE3        WR1        WR2        WR3         NB       DOOR     CORa12     CORb12     CORa13     CORb13     CORa23     CORb23 
+230506.000 191607.000 211169.000 210622.000      1.106      1.105      0.003      0.820      0.745      0.004      1.203      1.137      1.096      0.050      0.525     -0.175     -0.331      0.371      0.351     -0.106     -0.120 
+> 
+> 
+# compare to calculated
+> round(wr.power.tt.count.cont(er1.a=0.086, er1.b=0.103,  lam.a=0.2574614, lam.b=0.3321187, mu3.a=-22.2145927  , mu3.b= -24.0168924, sd3=104, power=0.9, s=1, sample.size=3064),3)
+     n.yu1      n.yu2      n.yu3       wr_1         w1       wr_2         w2       wr_3         w3       wr_c     p_tie1     p_tie2    p_tie12      p_tie power_c.WR 
+  8652.479   1688.742   2912.255      1.209      0.175      1.341      0.299      1.020      0.526      1.149      0.820      0.603      0.494      0.000      0.914 
+>
+
+# let's take the censoring on time to death into account
+tdc.hfa.6m <- read.csv(file="C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\HEART-FID Trial\\tdc_hfa_6m.csv",  header=T)
+
+tdc.wr <- f.wins.est.tte1(d=tdc.hfa.6m, order2="LT", order3="GT", delta3=0)
+round(tdc.wr,3)
+> round(tdc.wr,3)
+     nwin1     nlose1     nwin22     nlos22         WR         WO        TIE       TIE1       TIE2       TIE3        WR1        WR2        WR3         NB       DOOR     CORa12     CORb12     CORa13     CORb13     CORa23     CORb23 
+227802.000 188659.000 212356.000 211792.000      1.106      1.105      0.003      0.823      0.745      0.004      1.207      1.137      1.096      0.050      0.525     -0.150     -0.280      0.348      0.302     -0.106     -0.120 
+> 
+
+# wto use the WINS package to compute win ratio, we need alternative win strategy
+hfid.wins.out <- win.stat(data=td.hfa.6m, ep_type=c('tte','continous','continuous'), Z_t_trt = NULL, Z_t_con = NULL, arm.name = c('a','b'),
+priority = c(1,2,3), alpha = 0.05, digit = 3, tau = 0, win.strategy = NULL,
+pvalue = "two-sided",
+weight = "unstratified",
+censoring_adjust = "No", var_method = c("Dong et al."))
+This analysis is unstratified. 
+The Dong et al.'s method to calculate variance is used. 
+
+ Win Ratio : 1.105 
+ 
+ two-sided p-value is:  0.018 
+ Lower limit of 95 % CI of the win ratio:  1.017 
+ Upper limit of 95 % CI of the win ratio:  1.199 
+ 
+ 
+ Net Benefit : 0.050 
+ 
+ two-sided p-value is:  0.018 
+ Lower limit of 95 % CI of the net benefit:  0.009 
+ Upper limit of 95 % CI of the net benefit:  0.090 
+ 
+ 
+ Win Odds : 1.104 
+ 
+ two-sided p-value is:  0.018 
+ Lower limit of 95 % CI of the win odds:  1.017 
+ Upper limit of 95 % CI of the win odds:  1.198 
+
+
+# what if we just use the first two endpoints?
+source("C:\\Users\\barnh005\\Box\\Hierarchical endpoints\\Papers\\General Win Ratio\\f.wins.est.txt")
+thfa.wr12 <- f.wins.est(d=td.hfa.6m, order1="GT", order2="LT")
+round(thfa.wr12,3)
+> round(thfa.wr12,3)
+    WR     WO    TIE   TIE1   TIE2    WR1    WR2     NB   DOOR   CORa   CORb 
+ 1.098  1.034  0.641  0.820  0.745  1.203  1.137  0.017  0.508 -0.175 -0.331 
+>
+
+# get number of HFs from the adjusted variable
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='a', 'Y_2'])
+[1] 348.0879
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='a', 'Y_2'])/1352
+[1] 0.2574614
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='b', 'Y_2'])
+[1] 449.3566
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='b', 'Y_2'])/1353
+[1] 0.3321187
+
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='a' & d.hfa.6m[,'Y_1']==1, 'Y_2'])
+
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='a' & d.hfa.6m[,'Y_1']==1, 'Y_2'])/131
+
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='b' & d.hfa.6m[,'Y_1']==1, 'Y_2'])
+
+sum(d.hfa.6m[d.hfa.6m[,"arm"]=='b' & d.hfa.6m[,'Y_1']==1, 'Y_2'])/158
+

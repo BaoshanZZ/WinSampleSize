@@ -22,17 +22,17 @@ endpoints.H0 <- list(
 
 Follow_up.Time <- 200
 
-set.seed(123); N_sp <- 8000; numCores <- 20
-BATCH_SIZE <- 50; B_MIN <- 100; B_MAX <- 700
+set.seed(123); N_sp <- 2000; numCores <- 20
+BATCH_SIZE <- 50; B_MIN <- 100; B_MAX <- 3000
 history_every <- 5
-EPSILON_tau <- 1e-3; EPSILON_xi <- 1e-4
+EPSILON_tau <- 5e-4; EPSILON_xi <- 1e-4
 RUNNING_emp_power <- 10000
 rho_values <- c(0.0, 0.2, 0.4, 0.6, 0.8)
 
 alpha <- 0.05; beta <- 0.15; Sample.rho <- 1
 
 config <- list(
-  scenario_name = "Scenario2 (Cont+Bin)",
+  scenario_name = "Scenario2 (Cont+Bin, Nsp2000)",
   endpoints.HA = endpoints.HA,
   endpoints.H0 = endpoints.H0,
   Follow_up.Time = Follow_up.Time,
@@ -49,10 +49,17 @@ config <- list(
   alpha = alpha,
   beta = beta,
   Sample.rho = Sample.rho,
+  seed_offset_estimation = 27183567,
+  seed_offset_empirical = 11723278,
+  seed_offset_type1 = 11723278,
   copula_type = "Gaussian",
   association_name = "rho",
-  output_csv = "Simulation Examples/Summary.Scenario2.csv",
+  output_csv = "Simulation Examples/Summary.Scenario2.Nsp2000.csv",
   observed_corr_fun = CALC.Observed.Corr.Local
 )
 
 final_summary_table <- Run_Simulation(config = config)
+final_summary_table$N_sp <- N_sp
+final_summary_table <- final_summary_table[, c("N_sp", setdiff(names(final_summary_table), "N_sp"))]
+write.csv(final_summary_table, config$output_csv, row.names = FALSE)
+

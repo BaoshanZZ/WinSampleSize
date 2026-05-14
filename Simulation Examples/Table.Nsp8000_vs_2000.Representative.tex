@@ -1,0 +1,20 @@
+\begin{table}[ht!]
+\centering
+\caption{Representative computational comparison between aligned $N_{\textup{sp}}=8000$ runs and standardized $N_{\textup{sp}}=2000$ runs at $\rho=0$.}
+\label{tab:nsp8000_vs_2000_rho0}
+\setlength{\tabcolsep}{3.5pt}
+\footnotesize
+\begin{tabular}{@{}l c ccc ccc@{}}
+\toprule
+& & \multicolumn{3}{c}{$N_{\textup{sp}}=8000$} & \multicolumn{3}{c}{$N_{\textup{sp}}=2000$} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+\textbf{Scenario} & $\rho$ & $B_{\text{final}}$ & Time (min) & Worker max (GB) & $B_{\text{final}}$ & Time (min) & Worker max (GB) \\
+\midrule
+S1: Cont + Cont & 0 & 250 & 12.3 & 7.80 & 900 & 6.5 & 0.80 \\
+S2: Cont + Bin & 0 & 350 & 17.4 & 7.80 & 1350 & 7.5 & 0.80 \\
+S3: Surv + Cont & 0 & 850 & 45.6 & 8.75 & 3000 & 14.3 & 0.91 \\
+S4: Bin + Cont & 0 & 350 & 17.8 & 7.80 & 1400 & 6.4 & 0.81 \\
+\bottomrule
+\end{tabular}
+\parbox{0.92\textwidth}{\footnotesize \textit{Note:} This table uses one representative setting per scenario, namely $\rho=0$, and all runs used 20 cores. The aligned $N_{\textup{sp}}=8000$ diagnostics are taken from \texttt{Diagnostics.Nsp8000.Aligned.Rho0.csv}, which was generated with the same adaptive Monte Carlo thresholds used in the standardized runs, namely $\varepsilon_{\tau}=5\times 10^{-4}$ and $\varepsilon_{\xi}=10^{-4}$. The $N_{\textup{sp}}=2000$ runs are taken from \texttt{Summary.Scenario1.Nsp2000.csv}, \texttt{Summary.Scenario2.Nsp2000.csv}, \texttt{Summary.Scenario3.Nsp2000.csv}, and \texttt{Summary.Scenario4.Nsp2000.csv}. Under this matched-threshold comparison, the smaller super-population size still greatly reduces worker memory and is faster in all four representative settings. However, the apparent runtime advantage for the survival-plus-continuous setting (S3) should be interpreted cautiously because the $N_{\textup{sp}}=2000$ run reached $B_{\max}$ rather than full convergence.}
+\end{table}

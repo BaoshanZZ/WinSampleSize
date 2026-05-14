@@ -1,0 +1,5 @@
+"Scenario","Scenario_Label","N_sp","rho","numCores","batch_size","b_min","b_max","eps_tau","eps_xi","Follow_up.Time","B_final","MC_Status","MC_Elapsed_Sec","MC_Master_Memory_Max_MB","MC_Worker_Memory_Max_MB","MC_Worker_Memory_Sum_Max_MB","MC_Max_SE_Tau","MC_Max_SE_Xi"
+"S1","Scenario1 (Cont+Cont, Nsp8000 aligned)",8000,0,20,50,100,3000,5e-04,1e-04,200,250,"CONVERGED",738,137.4,7983.1,159662,0.000468,6.75e-05
+"S2","Scenario2 (Cont+Bin, Nsp8000 aligned)",8000,0,20,50,100,3000,5e-04,1e-04,200,350,"CONVERGED",1042.2,116.7,7983.7,159674,5e-04,7.19e-05
+"S3","Scenario3 (Surv+Cont, Nsp8000 aligned)",8000,0,20,50,100,3000,5e-04,1e-04,10,850,"CONVERGED",2735.506,137.6,8959.2,169423,0.000489415644189629,4.52221012714455e-05
+"S4","Scenario4 (Bin+Cont, Nsp8000 aligned)",8000,0,20,50,100,3000,5e-04,1e-04,200,350,"CONVERGED",1066.648,117.1,7982.3,154772,0.000476250497374154,8.08771208890229e-05

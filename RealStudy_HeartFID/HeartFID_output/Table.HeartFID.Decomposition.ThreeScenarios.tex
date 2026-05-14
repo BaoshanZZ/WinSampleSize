@@ -1,0 +1,28 @@
+\begin{landscape}
+\begin{table}
+\centering
+\caption{Win probability decomposition and overall win measures across three correlation scenarios in the HEART-FID trial.}
+\label{tab:heartfid_combined_scenarios}
+\begin{threeparttable}
+\setlength{\tabcolsep}{3.0pt}
+\renewcommand{\arraystretch}{1.08}
+\footnotesize
+\begin{tabular}{@{}l c c c ccc ccc ccc ccc cccc@{}}
+\toprule
+& \multicolumn{2}{c}{Correlation} & & \multicolumn{3}{c}{\textbf{Marginal $D_1$ (\%)}} & \multicolumn{3}{c}{\textbf{Cond.\ $D_2|D_1$ Tie (\%)}} & \multicolumn{3}{c}{\textbf{Cond.\ $D_3|D_1,D_2$ Tie (\%)}} & \multicolumn{3}{c}{\textbf{Overall Probs (\%)}} & \multicolumn{4}{c}{\textbf{Win Measures}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){5-7} \cmidrule(lr){8-10} \cmidrule(lr){11-13} \cmidrule(lr){14-16} \cmidrule(l){17-20}
+Specification & Latent corr.\tnote{a} & Obs. corr.\tnote{b} & $\epsilon_3$ & Win & Loss & Tie & Win & Loss & Tie & Win & Loss & Tie & Win & Loss & Tie & WR & NB & WO & DOOR \\
+\midrule
+$\bm{\mathcal R}^{\textup{ind}}$ & (0.00, 0.00, 0.00) & (0.00, 0.00, 0.00) & 0 & 9.85 & 8.16 & 81.98 & 22.74 & 16.94 & 60.32 & 50.49 & 49.51 & 0.00 & 53.46 & 46.54 & 0.00 & 1.149 & 0.069 & 1.149 & 0.535 \\
+$\bm{\mathcal R}^{\textup{dir}}$ & (-0.22, 0.52, -0.10) & (-0.15, 0.55, -0.06) & 0 & 9.87 & 8.18 & 81.96 & 21.65 & 16.31 & 62.05 & 50.11 & 49.89 & 0.00 & 53.09 & 46.91 & 0.00 & 1.132 & 0.062 & 1.132 & 0.531 \\
+$\bm{\mathcal R}^{\textup{cal}}$ & (-0.30, 0.49, -0.17) & (-0.21, 0.53, -0.10) & 0 & 9.82 & 8.13 & 82.05 & 21.26 & 15.95 & 62.79 & 50.04 & 49.96 & 0.00 & 53.04 & 46.96 & 0.00 & 1.130 & 0.061 & 1.130 & 0.530 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item[a] Latent Gaussian copula correlations: $(\rho_{12}, \rho_{13}, \rho_{23})$ for endpoint pairs $D_1$--$D_2$, $D_1$--$D_3$, and $D_2$--$D_3$.
+\item[b] Observed pairwise associations in the simulated treatment-arm super-populations used by the FORSS adaptive estimator: $(\hat{a}_{12}, \hat{a}_{13}, \hat{a}_{23})$. Here $\hat{a}_{12}=2C\{D_1,D_2\}-1$ and $\hat{a}_{13}=2C\{D_1,D_3\}-1$, where $C$ is Harrell's concordance using administratively censored $D_1$; $\hat{a}_{23}$ is Kendall's tau-b between $D_2$ and $D_3$.
+\item Note: WR = Win Ratio; NB = Net Benefit; WO = Win Odds; DOOR = Desirability of Outcome Ranking. $D_1$ = CV death (time-to-event); $D_2$ = HF hospitalizations (count); $D_3$ = 6MWD change (continuous). Cond. = conditional probability among pairs tied on all higher-priority endpoints.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+\end{landscape}

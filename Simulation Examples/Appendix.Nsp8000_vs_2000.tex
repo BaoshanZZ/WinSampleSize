@@ -1,0 +1,7 @@
+\subsection{Representative Comparison of $N_{\textup{sp}}=8000$ and $N_{\textup{sp}}=2000$ Runs}\label{app:nsp8000_vs_2000}
+
+To provide a matched comparison of computational burden, we contrasted aligned runs with $N_{\textup{sp}}=8000$ against the standardized runs with $N_{\textup{sp}}=2000$ using one representative dependence setting per scenario, namely $\rho=0$. Both sets of runs used the same adaptive Monte Carlo thresholds, $\varepsilon_{\tau}=5\times 10^{-4}$ and $\varepsilon_{\xi}=10^{-4}$, and all computations used 20 cores.
+
+Across all four scenarios, reducing $N_{\textup{sp}}$ from 8000 to 2000 substantially decreased peak worker memory usage from approximately 8--9~GB to about 0.8--0.9~GB. Under this matched-threshold comparison, the $N_{\textup{sp}}=2000$ runs were also faster in all four representative settings. Among the settings that converged for both super-population sizes, the largest time savings were seen in Scenarios~S2 and S4, whereas the difference was more modest in Scenario~S1. The runtime comparison for Scenario~S3 should be interpreted more cautiously: although the $N_{\textup{sp}}=2000$ run finished sooner, it reached $B_{\max}=3000$, while the aligned $N_{\textup{sp}}=8000$ run converged at $B_{\text{final}}=850$. Thus, the smaller super-population size is clearly attractive from a memory perspective and is often faster in practice, but the survival-plus-continuous setting remains the most sensitive to the reduction in $N_{\textup{sp}}$.
+
+\input{Simulation Examples/Table.Nsp8000_vs_2000.Representative.tex}

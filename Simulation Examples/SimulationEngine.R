@@ -509,7 +509,7 @@ Plot_Convergence_V2 <- function(batch_history, plot_file,
   grDevices::pdf(plot_file, width = 12, height = 5, onefile = TRUE)
   on.exit(grDevices::dev.off(), add = TRUE)
   
-  par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+  par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
   if ("Required_SS_Per_Arm" %in% names(batch_history)) {
     ss_vals <- as.numeric(batch_history$Required_SS_Per_Arm)
     ss_range <- range(ss_vals, na.rm = TRUE)
@@ -519,17 +519,15 @@ Plot_Convergence_V2 <- function(batch_history, plot_file,
       }
       plot(B_vals, ss_vals, type = "o", pch = 16, col = "#2c7fb8",
            xlab = "B", ylab = "Required sample size per arm",
-           main = sprintf("%s | %s | Required SS", scenario_name, stage_label),
+           main = "",
            ylim = ss_range)
       grid()
     } else {
       plot.new()
-      title(main = sprintf("%s | %s | Required SS", scenario_name, stage_label))
       text(0.5, 0.5, "No finite data")
     }
   } else {
     plot.new()
-    title(main = sprintf("%s | %s | Required SS", scenario_name, stage_label))
     text(0.5, 0.5, "No data")
   }
   
@@ -539,7 +537,7 @@ Plot_Convergence_V2 <- function(batch_history, plot_file,
   }
   
   plot(B_vals, batch_history$Max_SE_Tau, type = "o", pch = 16, col = "#1f77b4",
-       xlab = "B", ylab = "Max SE", main = sprintf("%s | %s | SE diagnostics", scenario_name, stage_label),
+       xlab = "B", ylab = "Max SE", main = "",
        ylim = y_range)
   grid()
   lines(B_vals, batch_history$Max_SE_Xi, type = "o", pch = 17, col = "#d62728")
@@ -716,9 +714,10 @@ aggregate_mc <- function(mc_results) {
 Calc.AttPower_V2 <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_param,
                              endpoints.Ctrl, endpoints.Trt, Follow_up.Time = 200,
                              useParallel = FALSE, numCores = NULL,
-                             kernel_fun = Calc.Kernal.Matrix) {
+                             kernel_fun = Calc.Kernal.Matrix,
+                             seed_offset = 0) {
   run_one_power_sim <- function(i) {
-    set.seed(i)
+    set.seed(seed_offset + i)
     Pop.Ctrl <- Generating_Sample_V2(
       endpoints = endpoints.Ctrl,
       copula_type = copula_type,
@@ -790,7 +789,8 @@ Calc.AttPower_V2 <- function(RUNNING = 2000, alpha, m, n, copula_type, copula_pa
       cl,
       c("m", "n", "alpha", "copula_type", "copula_param",
         "endpoints.Ctrl", "endpoints.Trt", "Follow_up.Time",
-        "kernel_fun", "Var_NB", "Var_logWR", "Var_logWO", "Var_DOOR"),
+        "kernel_fun", "Var_NB", "Var_logWR", "Var_logWO", "Var_DOOR",
+        "seed_offset"),
       envir = environment()
     )
     
@@ -1007,6 +1007,22 @@ Build_Result_Row_V2 <- function(rho, agg, fixed_m_sample_wr,
   result_list$Type_I_Error_WR <- type_I_error$WR
   result_list$Type_I_Error_WO <- type_I_error$WO
   result_list$Type_I_Error_DOOR <- type_I_error$DOOR
+
+  tau_w_H0 <- mean_taus["tau_w_H0"]
+  tau_l_H0 <- mean_taus["tau_l_H0"]
+  result_list$Null_Win_Prob <- tau_w_H0
+  result_list$SE_Null_Win_Prob <- se_taus["tau_w_H0"]
+  result_list$Null_Loss_Prob <- tau_l_H0
+  result_list$SE_Null_Loss_Prob <- se_taus["tau_l_H0"]
+  result_list$Null_Tie_Prob <- 1 - tau_w_H0 - tau_l_H0
+  result_list$Null_Win_Ratio <- tau_w_H0 / tau_l_H0
+
+  for (xi_name in names(agg$mean_xi_h0)) {
+    result_list[[paste0("Xi_H0_", xi_name)]] <- as.numeric(agg$mean_xi_h0[xi_name])
+  }
+  for (xi_name in names(agg$mean_xi_ha)) {
+    result_list[[paste0("Xi_HA_", xi_name)]] <- as.numeric(agg$mean_xi_ha[xi_name])
+  }
   
   return(as.data.frame(result_list))
 }
@@ -1069,6 +1085,21 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
   observed_corr_fun <- config$observed_corr_fun
   copula_type <- if (!is.null(config$copula_type)) config$copula_type else "Gaussian"
   association_name <- if (!is.null(config$association_name)) config$association_name else "rho"
+  seed_offset_estimation <- if (!is.null(config$seed_offset_estimation)) {
+    config$seed_offset_estimation
+  } else {
+    sample.int(100000000, 1)
+  }
+  seed_offset_empirical <- if (!is.null(config$seed_offset_empirical)) {
+    config$seed_offset_empirical
+  } else {
+    sample.int(100000000, 1)
+  }
+  seed_offset_type1 <- if (!is.null(config$seed_offset_type1)) {
+    config$seed_offset_type1
+  } else {
+    seed_offset_empirical
+  }
   copula_param_builder <- if (!is.null(config$copula_param_builder)) {
     config$copula_param_builder
   } else {
@@ -1105,7 +1136,7 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
     eps_xi = eps_xi,
     kernel_fun = kernel_fun,
     observed_corr_fun = observed_corr_fun,
-    seed_offset = 0,
+    seed_offset = seed_offset_estimation,
     copula_type = copula_type,
     plot_file = Build_Convergence_File_V2(output_csv, config$scenario_name, sprintf("%s_0.0_precalc", association_name)),
     scenario_name = config$scenario_name,
@@ -1152,7 +1183,8 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
       numCores = numCores,
       useParallel = TRUE,
       Follow_up.Time = Follow_up.Time,
-      kernel_fun = kernel_fun
+      kernel_fun = kernel_fun,
+      seed_offset = seed_offset_empirical
     )
   } else {
     list(NB = NA, WR = NA, WO = NA, DOOR = NA)
@@ -1173,7 +1205,8 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
       useParallel = TRUE,
       numCores = numCores,
       Follow_up.Time = Follow_up.Time,
-      kernel_fun = kernel_fun
+      kernel_fun = kernel_fun,
+      seed_offset = seed_offset_type1
     )
   } else {
     list(NB = NA, WR = NA, WO = NA, DOOR = NA)
@@ -1210,7 +1243,7 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
       eps_xi = eps_xi,
       kernel_fun = kernel_fun,
       observed_corr_fun = observed_corr_fun,
-      seed_offset = 0,
+      seed_offset = seed_offset_estimation,
       copula_type = copula_type,
       plot_file = Build_Convergence_File_V2(output_csv, config$scenario_name, sprintf("%s_%s", association_name, format(rho, trim = TRUE, scientific = FALSE))),
       scenario_name = config$scenario_name,
@@ -1240,7 +1273,8 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
         useParallel = TRUE,
         numCores = numCores,
         Follow_up.Time = Follow_up.Time,
-        kernel_fun = kernel_fun
+        kernel_fun = kernel_fun,
+        seed_offset = seed_offset_empirical
       )
     } else {
       list(NB = NA, WR = NA, WO = NA, DOOR = NA)
@@ -1261,7 +1295,8 @@ Run_Simulation_V2 <- function(config, kernel_fun = Calc.Kernal.Matrix) {
         useParallel = TRUE,
         numCores = numCores,
         Follow_up.Time = Follow_up.Time,
-        kernel_fun = kernel_fun
+        kernel_fun = kernel_fun,
+        seed_offset = seed_offset_type1
       )
     } else {
       list(NB = NA, WR = NA, WO = NA, DOOR = NA)

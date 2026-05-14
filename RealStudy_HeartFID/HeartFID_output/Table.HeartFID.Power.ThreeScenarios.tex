@@ -1,0 +1,24 @@
+\begin{table}[ht!]
+\centering
+\caption{Calculated and empirical power across three correlation scenarios in the HEART-FID trial.}
+\label{tab:heartfid_power_scenarios}
+\begin{threeparttable}
+\setlength{\tabcolsep}{4.2pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabular}{@{}l c c cccc cccc c@{}}
+\toprule
+& \multicolumn{1}{c}{\textbf{Correlation}} & & \multicolumn{4}{c}{\textbf{Calculated Power (\%)}} & \multicolumn{4}{c}{\textbf{Empirical Power (\%)}} & \textbf{Type I} \\
+\cmidrule(lr){4-7} \cmidrule(lr){8-11}
+\textbf{Scenario} & latent $\bm{\mathcal{R}}$\tnote{a} & $\epsilon_3$ & WR & NB & WO & DOOR & WR & NB & WO & DOOR & \textbf{Error (WR, \%)} \\
+\midrule
+Independent & (0.00, 0.00, 0.00) & 0 & 85.00 & 85.01 & 85.00 & 85.01 & 84.43 & 84.55 & 84.43 & 84.55 & 4.85 \\
+Direct input & (-0.22, 0.52, -0.10) & 0 & 76.20 & 76.18 & 76.20 & 76.18 & 76.59 & 76.68 & 76.59 & 76.68 & 5.28 \\
+Calibrated & (-0.30, 0.49, -0.17) & 0 & 74.87 & 74.85 & 74.87 & 74.85 & 75.13 & 75.21 & 75.13 & 75.21 & 5.09 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item[a] Latent Gaussian copula correlations: $(\rho_{12}, \rho_{13}, \rho_{23})$ for endpoint pairs $D_1$--$D_2$, $D_1$--$D_3$, and $D_2$--$D_3$.
+\item Note: Sample size fixed at $m=n=1,244$ per arm, determined under the independent scenario using WR.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}

@@ -1,0 +1,17 @@
+\begin{table}[ht!]
+\centering
+\caption{Adaptive Monte Carlo computational diagnostics for the HEART-FID illustration.}
+\label{tab:heartfid_computation}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabular}{@{}l c c c c c c@{}}
+\toprule
+\textbf{Scenario} & $N_{\mathrm{sp}}$ & $b_{\text{final}}$ & Status & Time (min) & Max SE$(\tau)$ & Max SE$(\xi)$ \\
+\midrule
+$\bm{\mathcal R}^{\textup{ind}}$ & 2000 & 2000 & CONVERGED & 20.2 & $9.93\times 10^{-4}$ & $5.35\times 10^{-5}$ \\
+$\bm{\mathcal R}^{\textup{dir}}$ & 2000 & 1300 & CONVERGED & 12.8 & $9.96\times 10^{-4}$ & $6.71\times 10^{-5}$ \\
+$\bm{\mathcal R}^{\textup{cal}}$ & 2000 & 1550 & CONVERGED & 15.4 & $9.84\times 10^{-4}$ & $6.01\times 10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\parbox{0.92\textwidth}{\footnotesize \textit{Note:} All adaptive estimation runs used 16 CPU cores, $b_{\min}=100$, $b_{\max}=3,000$, $\varepsilon_{\tau}=10^{-3}$, and $\varepsilon_{\xi}=10^{-4}$. Runtime is reported in minutes from the adaptive estimation stage only. The fixed design used $m=n=1,244$ per arm, determined under the independent scenario using the WR.}
+\end{table}
